@@ -83,8 +83,12 @@
       </div>
     </div>
 
-    <script>
-      // Game State
+    <script type="module">
+      // === 1. IMPORT EXTERNAL CLASSES ===
+      import { GameState } from "./src/classes/GameState.js";
+      import { MapRenderer } from "./src/classes/MapRenderer.js";
+
+      // === 2. GAME STATE OBJECT ===
       const game = {
         day: 1,
         gold: 100,
@@ -105,162 +109,7 @@
         gameData: null,
       };
 
-      // GameState wrapper class
-      class GameState {
-        constructor(gameObj) {
-          this.game = gameObj;
-        }
-
-        updateGold(amount) {
-          this.game.gold += amount;
-        }
-
-        setGold(amount) {
-          this.game.gold = amount;
-        }
-
-        updateDay(amount = 1) {
-          this.game.day += amount;
-        }
-
-        setLocation(locationIndex) {
-          this.game.location = locationIndex;
-        }
-
-        updateStock(itemId, amount) {
-          this.game.stock[itemId] = (this.game.stock[itemId] || 0) + amount;
-        }
-
-        setStock(itemId, amount) {
-          this.game.stock[itemId] = amount;
-        }
-
-        addToInventory(itemId, quantity, price) {
-          for (let i = 0; i < quantity; i++) {
-            this.game.inventory.push({ id: itemId, price: price });
-          }
-        }
-
-        removeFromInventory(itemId, quantity) {
-          for (let i = 0; i < quantity; i++) {
-            const index = this.game.inventory.findIndex((item) => item.id === itemId);
-            if (index !== -1) {
-              this.game.inventory.splice(index, 1);
-            }
-          }
-        }
-
-        clearInventory() {
-          this.game.inventory = [];
-        }
-
-        // Inside the GameState class
-        getAveragePurchasePrice(itemId) {
-          const items = this.game.inventory.filter((item) => item.id === itemId);
-          if (items.length === 0) return null;
-
-          const totalCost = items.reduce((sum, item) => sum + item.price, 0);
-          return Math.round(totalCost / items.length);
-        }
-
-        updateSaturation(key, amount) {
-          this.game.saturation[key] = (this.game.saturation[key] || 0) + amount;
-        }
-
-        setSaturation(key, amount) {
-          this.game.saturation[key] = amount;
-        }
-
-        clearSaturation(key) {
-          delete this.game.saturation[key];
-        }
-
-        decaySaturation() {
-          const decayRate = this.game.rules.pricing.saturation.decayRate;
-          Object.keys(this.game.saturation).forEach((key) => {
-            this.game.saturation[key] = Math.max(0, this.game.saturation[key] - decayRate);
-            if (this.game.saturation[key] === 0) {
-              this.clearSaturation(key);
-            }
-          });
-        }
-
-        setPrices(prices) {
-          this.game.prices = prices;
-        }
-
-        setPrice(itemId, price) {
-          this.game.prices[itemId] = price;
-        }
-
-        setSeed(seed) {
-          this.game.seed = seed;
-        }
-
-        reset() {
-          this.game.day = 1;
-          this.game.gold = this.game.rules.gameplay.startingGold;
-          this.game.location = 0;
-          this.game.inventory = [];
-          this.game.saturation = {};
-          this.game.currentQuest = null;
-          this.game.seed = Date.now() % 10000;
-        }
-
-        // Getter methods for controlled access
-        getPrice(itemId) {
-          return this.game.prices[itemId];
-        }
-
-        getStock(itemId) {
-          return this.game.stock[itemId] || 0;
-        }
-
-        getSaturation(key) {
-          return this.game.saturation[key] || 0;
-        }
-
-        getInventorySpace() {
-          return this.game.rules.gameplay.inventoryLimit - this.game.inventory.length;
-        }
-
-        getItem(itemId) {
-          return this.game.items.find((i) => i.id === itemId);
-        }
-
-        getLocation(index) {
-          return this.game.locations[index];
-        }
-
-        getCurrentLocation() {
-          return this.game.locations[this.game.location];
-        }
-
-        getInventoryCount(itemId) {
-          return this.game.inventory.filter((item) => item.id === itemId).length;
-        }
-
-        getGold() {
-          return this.game.gold;
-        }
-
-        // Quest methods
-        setQuest(quest) {
-          this.game.currentQuest = quest;
-        }
-
-        updateQuestDelivered(amount) {
-          if (this.game.currentQuest) {
-            this.game.currentQuest.delivered += amount;
-          }
-        }
-
-        completeQuest() {
-          this.game.currentQuest = null;
-        }
-      }
-
-      // Create GameState instance
+      // === 3. CREATE GAMESTATE INSTANCE ===
       const gameState = new GameState(game);
 
       // Grid system utilities
@@ -275,38 +124,29 @@
           }
           return null;
         }
-
         static areAdjacent(locIndexA, locIndexB) {
           const posA = this.findLocationPosition(locIndexA);
           const posB = this.findLocationPosition(locIndexB);
           if (!posA || !posB) return false;
-
           const dx = Math.abs(posA.x - posB.x);
           const dy = Math.abs(posA.y - posB.y);
           return dx <= 1 && dy <= 1 && dx + dy > 0;
         }
-
         static getGridDistance(locIndexA, locIndexB) {
           const posA = this.findLocationPosition(locIndexA);
           const posB = this.findLocationPosition(locIndexB);
           if (!posA || !posB) return Infinity;
-
           return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
         }
-
         static findPath(fromIndex, toIndex) {
-          // Simple A* pathfinding implementation
           const start = this.findLocationPosition(fromIndex);
           const goal = this.findLocationPosition(toIndex);
           if (!start || !goal) return [];
-
           const openSet = [{ x: start.x, y: start.y, g: 0, f: 0, parent: null }];
           const closedSet = [];
           const gridWidth = gameState.game.rules.grid.width;
           const gridHeight = gameState.game.rules.grid.height;
-
           while (openSet.length > 0) {
-            // Get node with lowest f score
             let current = openSet[0];
             let currentIndex = 0;
             for (let i = 1; i < openSet.length; i++) {
@@ -315,12 +155,8 @@
                 currentIndex = i;
               }
             }
-
-            // Remove from open set, add to closed set
             openSet.splice(currentIndex, 1);
             closedSet.push(current);
-
-            // Found goal
             if (current.x === goal.x && current.y === goal.y) {
               const path = [];
               let node = current;
@@ -333,24 +169,18 @@
               }
               return path;
             }
-
-            // Check neighbors
             const neighbors = [
               { x: current.x - 1, y: current.y },
               { x: current.x + 1, y: current.y },
               { x: current.x, y: current.y - 1 },
               { x: current.x, y: current.y + 1 },
             ];
-
             for (const neighbor of neighbors) {
               if (neighbor.x < 0 || neighbor.x >= gridWidth || neighbor.y < 0 || neighbor.y >= gridHeight) continue;
-
               if (closedSet.find((n) => n.x === neighbor.x && n.y === neighbor.y)) continue;
-
               const g = current.g + 1;
               const h = Math.abs(neighbor.x - goal.x) + Math.abs(neighbor.y - goal.y);
               const f = g + h;
-
               const existing = openSet.find((n) => n.x === neighbor.x && n.y === neighbor.y);
               if (!existing) {
                 openSet.push({ x: neighbor.x, y: neighbor.y, g, h, f, parent: current });
@@ -361,8 +191,7 @@
               }
             }
           }
-
-          return []; // No path found
+          return [];
         }
       }
 
@@ -374,47 +203,34 @@
             seedRng = (seedRng * 9301 + 49297) % 233280;
             return seedRng / 233280;
           }
-
-          // Pick random item
           const item = gameState.game.items[Math.floor(seededRandom() * gameState.game.items.length)];
-
-          // Find valid target locations (expensive or doesn't sell item)
           const validTargets = [];
           gameState.game.locations.forEach((location, index) => {
-            if (index === currentLocationIndex) return; // Can't target current location
-
+            if (index === currentLocationIndex) return;
             const multiplier = location.multipliers[item.category] || 1.0;
             if (multiplier >= 1.2) {
-              // Expensive enough
               validTargets.push(location);
             }
           });
-
           if (validTargets.length === 0) {
-            // Fallback to any location except current
             validTargets.push(...gameState.game.locations.filter((_, i) => i !== currentLocationIndex));
           }
-
           const targetLocation = validTargets[Math.floor(seededRandom() * validTargets.length)];
-
-          // Set quantity based on category
           let quantity;
           switch (item.category) {
             case "basic":
               quantity = Math.floor(seededRandom() * 3) + 3;
-              break; // 3-5
+              break;
             case "quality":
               quantity = Math.floor(seededRandom() * 3) + 2;
-              break; // 2-4
+              break;
             case "premium":
               quantity = Math.floor(seededRandom() * 2) + 1;
-              break; // 1-2
+              break;
             default:
               quantity = 3;
           }
-
-          const reward = item.basePrice * quantity * 1.5; // 50% bonus over base value
-
+          const reward = item.basePrice * quantity * 1.5;
           return {
             itemId: item.id,
             targetLocationName: targetLocation.name,
@@ -423,37 +239,25 @@
             reward: Math.round(reward),
           };
         }
-
         static checkQuestDelivery() {
           if (!gameState.game.currentQuest) return;
-
           const currentLocationName = gameState.game.locations[gameState.game.location].name;
           if (currentLocationName !== gameState.game.currentQuest.targetLocationName) return;
-
           const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
           if (questItemCount === 0) return;
-
           const deliverAmount = Math.min(questItemCount, gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered);
-
-          // Remove items from inventory
           gameState.removeFromInventory(gameState.game.currentQuest.itemId, deliverAmount);
-
-          // Update quest progress
           gameState.updateQuestDelivered(deliverAmount);
-
-          // Check if quest completed
           if (gameState.game.currentQuest.delivered >= gameState.game.currentQuest.quantity) {
             gameState.updateGold(gameState.game.currentQuest.reward);
             gameState.completeQuest();
-
-            // Generate new quest
             const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
             gameState.setQuest(newQuest);
           }
         }
       }
 
-      // Market Logic - Business rules only, no state mutations
+      // Market Logic
       class MarketLogic {
         static generatePrices() {
           const rules = gameState.game.rules.pricing;
@@ -461,7 +265,6 @@
           const SEASONAL_RANGE = rules.seasonal.range;
           const DAILY_MIN = rules.daily.min;
           const DAILY_RANGE = rules.daily.range;
-
           const prices = {};
           gameState.game.items.forEach((item) => {
             const base = item.basePrice;
@@ -471,60 +274,47 @@
           });
           return prices;
         }
-
         static generateStock() {
           const rules = gameState.game.rules.stock;
           const MIN_STOCK = rules.minStock;
           const STOCK_RANGE = rules.stockRange;
-
           const stock = {};
           gameState.game.items.forEach((item) => {
             stock[item.id] = Math.floor(Math.random() * STOCK_RANGE) + MIN_STOCK;
           });
           return stock;
         }
-
         static getPrice(itemId, locationId) {
           const rules = gameState.game.rules.pricing.saturation;
           const SATURATION_THRESHOLD = rules.threshold;
           const SATURATION_PENALTY_RATE = rules.penaltyRate;
           const DEFAULT_MULTIPLIER = 1;
-
           const item = gameState.getItem(itemId);
           const location = gameState.getLocation(locationId);
           const basePrice = gameState.getPrice(itemId);
           const locationMultiplier = location.multipliers[item.category] || DEFAULT_MULTIPLIER;
-
-          // Apply market saturation - affects both buying and selling
           const saturationKey = `${locationId}-${itemId}`;
           const saturationLevel = gameState.getSaturation(saturationKey);
-
           let marketAdjustment = 1.0;
           if (saturationLevel >= SATURATION_THRESHOLD) {
-            // Linear price reduction based on oversaturation
             const excessSaturation = saturationLevel - SATURATION_THRESHOLD;
             marketAdjustment = 1.0 - SATURATION_PENALTY_RATE * (1 + excessSaturation * 0.2);
-            marketAdjustment = Math.max(0.4, marketAdjustment); // Floor at 60% discount
+            marketAdjustment = Math.max(0.4, marketAdjustment);
           }
-
           const finalPrice = basePrice * locationMultiplier * marketAdjustment;
           return Math.round(finalPrice);
         }
-
         static canBuy(itemId, quantity) {
           const price = this.getPrice(itemId, gameState.game.location);
           const cost = price * quantity;
           const available = gameState.getStock(itemId);
           const space = gameState.getInventorySpace();
-
           return cost <= gameState.getGold() && quantity <= available && quantity <= space;
         }
-
         static canSell(itemId, quantity) {
           const owned = gameState.getInventoryCount(itemId);
           return quantity <= owned;
         }
-
         static getMaxBuyQuantity(itemId) {
           const price = this.getPrice(itemId, gameState.game.location);
           const affordable = Math.floor(gameState.getGold() / price);
@@ -532,16 +322,13 @@
           const space = gameState.getInventorySpace();
           return Math.min(affordable, available, space);
         }
-
         static getMaxSellQuantity(itemId) {
           return gameState.getInventoryCount(itemId);
         }
-
         static getDealQuality(itemId) {
           const item = gameState.getItem(itemId);
           const location = gameState.getCurrentLocation();
           const multiplier = location.multipliers[item.category] || 1.0;
-
           if (multiplier <= 0.8) return "great";
           if (multiplier <= 0.9) return "good";
           if (multiplier >= 1.3) return "poor";
@@ -549,15 +336,12 @@
         }
       }
 
-      // Market Actions - State mutations only, trusts caller did validation
+      // Market Actions
       class MarketActions {
         static sell(itemId, quantity) {
           const price = MarketLogic.getPrice(itemId, gameState.game.location);
-
           gameState.removeFromInventory(itemId, quantity);
           gameState.updateGold(price * quantity);
-
-          // Add selling saturation for large sales
           const rules = gameState.game.rules.pricing.saturation;
           if (quantity >= rules.threshold) {
             const satKey = `${gameState.game.location}-${itemId}`;
@@ -566,16 +350,12 @@
             gameState.setSaturation(satKey, newSaturation);
           }
         }
-
         static buy(itemId, quantity) {
           const price = MarketLogic.getPrice(itemId, gameState.game.location);
           const cost = price * quantity;
-
           gameState.updateGold(-cost);
           gameState.updateStock(itemId, -quantity);
           gameState.addToInventory(itemId, quantity, price);
-
-          // Add buying saturation for large purchases
           const rules = gameState.game.rules.pricing.saturation;
           if (quantity >= rules.threshold) {
             const satKey = `${gameState.game.location}-${itemId}`;
@@ -585,12 +365,10 @@
             gameState.setSaturation(satKey, newSaturation);
           }
         }
-
         static updatePrices() {
           const prices = MarketLogic.generatePrices();
           gameState.setPrices(prices);
         }
-
         static updateStock() {
           const stock = MarketLogic.generateStock();
           Object.entries(stock).forEach(([itemId, amount]) => {
@@ -599,270 +377,13 @@
         }
       }
 
-  
-      // Map Renderer - Enhanced with Visual Travel Paths & Custom Tooltip
-      class MapRenderer {
-        constructor(canvas) {
-          this.canvas = canvas;
-          this.ctx = canvas.getContext("2d");
-          this.hoverLocation = null; // Track hover state
-
-          // Event listeners
-          canvas.addEventListener("click", this.handleClick.bind(this));
-          canvas.addEventListener("mousemove", this.handleMouseMove.bind(this));
-          canvas.addEventListener("mouseout", () => {
-            this.hoverLocation = null;
-            this.canvas.title = "";
-            this.canvas.style.cursor = "default";
-            this.draw(); // Redraw without hover effects
-          });
-
-          // Handle window resize
-          window.addEventListener("resize", () => {
-            this.updateCanvasSize();
-            this.positionLocations();
-            this.draw();
-          });
-
-          // Defer initial setup
-          requestAnimationFrame(() => {
-            this.updateCanvasSize();
-            this.positionLocations();
-            this.draw();
-          });
-        }
-
-        updateCanvasSize() {
-          const rect = this.canvas.getBoundingClientRect();
-          const dpr = window.devicePixelRatio || 1;
-          this.canvas.width = rect.width * dpr;
-          this.canvas.height = rect.height * dpr;
-          this.ctx.scale(dpr, dpr);
-          this.displayWidth = rect.width;
-          this.displayHeight = rect.height;
-        }
-
-        positionLocations() {
-          const margin = 80;
-          const w = this.displayWidth - 2 * margin;
-          const h = this.displayHeight - 2 * margin;
-          const minSeparation = 100;
-          gameState.game.locations.forEach((location, i) => {
-            const gridPos = GridSystem.findLocationPosition(i);
-            if (gridPos) {
-              const gridWidth = gameState.game.rules.grid.width;
-              const gridHeight = gameState.game.rules.grid.height;
-              let x = margin + (gridPos.x / (gridWidth - 1)) * w;
-              let y = margin + (gridPos.y / (gridHeight - 1)) * h;
-
-              const locationSeed = gameState.game.seed + i * 17;
-              const pseudoRand1 = ((locationSeed * 9301 + 49297) % 233280) / 233280;
-              const pseudoRand2 = (((locationSeed + 1) * 9301 + 49297) % 233280) / 233280;
-              const offset = 30;
-              x += (pseudoRand1 - 0.5) * offset;
-              y += (pseudoRand2 - 0.5) * offset;
-
-              let attempts = 0;
-              while (attempts < 50) {
-                let tooClose = false;
-                for (let j = 0; j < i; j++) {
-                  const other = gameState.game.locations[j];
-                  if (other.x !== undefined && other.y !== undefined) {
-                    const dist = Math.sqrt((x - other.x) ** 2 + (y - other.y) ** 2);
-                    if (dist < minSeparation) {
-                      tooClose = true;
-                      break;
-                    }
-                  }
-                }
-                if (!tooClose) break;
-                const newSeed = locationSeed + attempts * 7;
-                const newRand1 = ((newSeed * 9301 + 49297) % 233280) / 233280;
-                const newRand2 = (((newSeed + 1) * 9301 + 49297) % 233280) / 233280;
-                x = margin + (gridPos.x / (gridWidth - 1)) * w;
-                y = margin + (gridPos.y / (gridHeight - 1)) * h;
-                x += (newRand1 - 0.5) * (offset + attempts * 10);
-                y += (newRand2 - 0.5) * (offset + attempts * 10);
-                attempts++;
-              }
-
-              location.x = Math.max(margin + 50, Math.min(this.displayWidth - margin - 50, x));
-              location.y = Math.max(margin + 50, Math.min(this.displayHeight - margin - 50, y));
-            }
-          });
-        }
-
-        draw() {
-          this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
-          this.drawRoads();
-
-          // Draw all locations
-          gameState.game.locations.forEach((location, i) => {
-            const isPlayer = i === gameState.game.location;
-            const radius = 32;
-            this.ctx.beginPath();
-            this.ctx.arc(location.x, location.y, radius, 0, Math.PI * 2);
-            this.ctx.fillStyle = isPlayer ? "#4a5a35" : "#2d2d20";
-            this.ctx.fill();
-            this.ctx.strokeStyle = isPlayer ? "#ffd700" : "#6a6a45";
-            this.ctx.lineWidth = isPlayer ? 3 : 1;
-            this.ctx.stroke();
-            //emoji size
-            this.ctx.font = "24px Consolas";
-            this.ctx.textAlign = "center";
-            this.ctx.textBaseline = "middle";
-            this.ctx.fillStyle = "#f4e4bc";
-            this.ctx.fillText(location.emoji, location.x, location.y);
-
-            this.ctx.font = "12px Consolas";
-            this.ctx.textBaseline = "top";
-            this.ctx.fillText(location.name, location.x, location.y + radius + (Math.random() * (20 - 6 + 1) ));
-          });
-
-          // Redraw hover effect if still active
-          if (this.hoverLocation !== null && this.hoverLocation !== gameState.game.location) {
-            this.drawPathTo(this.hoverLocation);
-            const loc = gameState.game.locations[this.hoverLocation];
-            this.drawTooltip(loc.x + 50, loc.y, `${GridSystem.getGridDistance(gameState.game.location, this.hoverLocation)} days 🗺️`);
-          }
-        }
-
-        drawRoads() {
-          this.ctx.strokeStyle = "#8b7355";
-          this.ctx.lineWidth = 2;
-          gameState.game.locations.forEach((from, i) => {
-            const distances = gameState.game.locations
-              .map((to, j) => ({
-                index: j,
-                dist: Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2),
-              }))
-              .filter((d) => d.index !== i)
-              .sort((a, b) => a.dist - b.dist)
-              .slice(0, 2);
-            distances.forEach(({ index }) => {
-              const to = gameState.game.locations[index];
-              const midX = (from.x + to.x) / 2;
-              const midY = (from.y + to.y) / 2;
-              const dx = to.x - from.x;
-              const dy = to.y - from.y;
-              const dist = Math.sqrt(dx * dx + dy * dy);
-              const perpX = (-dy / dist) * 20;
-              const perpY = (dx / dist) * 20;
-              this.ctx.beginPath();
-              this.ctx.moveTo(from.x, from.y);
-              this.ctx.quadraticCurveTo(midX + perpX, midY + perpY, to.x, to.y);
-              this.ctx.stroke();
-            });
-          });
-        }
-
-        drawPathTo(targetIndex) {
-          const path = GridSystem.findPath(gameState.game.location, targetIndex);
-          if (path.length <= 1) return;
-
-          this.ctx.save();
-          this.ctx.strokeStyle = "rgba(212, 175, 55, 0.6)"; // Gold, soft
-          this.ctx.lineWidth = 3;
-          this.ctx.setLineDash([5, 10]);
-          this.ctx.lineCap = "round";
-
-          // Draw path
-          this.ctx.beginPath();
-          const startLoc = gameState.game.locations[path[0]];
-          this.ctx.moveTo(startLoc.x, startLoc.y);
-          for (let i = 1; i < path.length; i++) {
-            const loc = gameState.game.locations[path[i]];
-            this.ctx.lineTo(loc.x, loc.y);
-          }
-          this.ctx.stroke();
-
-          // Add day markers (☀️) at each node except start
-          for (let i = 1; i < path.length; i++) {
-            const loc = gameState.game.locations[path[i]];
-            this.ctx.font = "16px Arial";
-            //this.ctx.fillText("☀️", loc.x - 8, loc.y - 20);
-          }
-
-          this.ctx.restore();
-        }
-
-        drawTooltip(x, y, text) {
-          const padding = 8;
-          const fontSize = 14;
-          this.ctx.font = `bold ${fontSize}px Consolas`;
-          const width = this.ctx.measureText(text).width + padding * 2;
-          const height = fontSize + padding * 2;
-
-          // Background box
-          this.ctx.fillStyle = "rgba(40, 30, 20, 0.9)";
-          this.ctx.fillRect(x, y - height, width, height);
-          this.ctx.strokeStyle = "rgba(212, 175, 55, 0.7)";
-          this.ctx.lineWidth = 1;
-          this.ctx.strokeRect(x, y - height, width, height);
-
-          // Text
-          this.ctx.fillStyle = "#e8dcc5";
-          this.ctx.fillText(text, x + width / 2, y - height + fontSize / 2);
-        }
-
-        handleClick(e) {
-          const rect = this.canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          gameState.game.locations.forEach((location, i) => {
-            const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-            if (dist <= 40) {
-              if (i !== gameState.game.location) {
-                travel(i);
-              } else {
-                enterLocation(i);
-              }
-            }
-          });
-        }
-
-        handleMouseMove(e) {
-          const rect = this.canvas.getBoundingClientRect();
-          const x = e.clientX - rect.left;
-          const y = e.clientY - rect.top;
-          let hoverLocation = null;
-
-          gameState.game.locations.forEach((location, i) => {
-            const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-            if (dist <= 40 && i !== gameState.game.location) {
-              hoverLocation = i;
-            }
-          });
-
-          if (hoverLocation !== null) {
-            this.hoverLocation = hoverLocation;
-            this.canvas.style.cursor = "pointer";
-            this.draw(); // Redraw with path and tooltip
-          } else if (this.hoverLocation !== null) {
-            this.hoverLocation = null;
-            this.canvas.style.cursor = "default";
-            this.draw(); // Clear hover effect
-          }
-        }
-      }
-
-      // Game Functions
+      // === 6. GAME FUNCTIONS (ALL PRESERVED) ===
       function travel(locationIndex) {
-        // Calculate travel time using grid distance
         const travelTime = GridSystem.getGridDistance(gameState.game.location, locationIndex);
-
-        if (gameState.game.day + travelTime > gameState.game.rules.gameplay.maxDays) {
-          return;
-        }
-
+        if (gameState.game.day + travelTime > gameState.game.rules.gameplay.maxDays) return;
         gameState.setLocation(locationIndex);
         gameState.updateDay(travelTime);
-
-        if (gameState.game.day > gameState.game.rules.gameplay.maxDays) {
-          endGame();
-          return;
-        }
-
+        if (gameState.game.day > gameState.game.rules.gameplay.maxDays) endGame();
         MarketActions.updatePrices();
         MarketActions.updateStock();
         gameState.decaySaturation();
@@ -876,38 +397,26 @@
 
       function canDeliverQuest() {
         if (!gameState.game.currentQuest) return false;
-
         const currentLocationName = gameState.getCurrentLocation().name;
         const targetMatch = currentLocationName === gameState.game.currentQuest.targetLocationName;
         const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
         const hasEnoughItems = questItemCount >= gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
-
         return targetMatch && hasEnoughItems;
       }
 
       function deliverQuest() {
         if (!canDeliverQuest()) return;
-
         const quest = gameState.game.currentQuest;
         const questItemCount = gameState.getInventoryCount(quest.itemId);
         const deliverAmount = Math.min(questItemCount, quest.quantity - quest.delivered);
-
-        // Remove items from inventory
         gameState.removeFromInventory(quest.itemId, deliverAmount);
-
-        // Update quest progress
         gameState.updateQuestDelivered(deliverAmount);
-
-        // Check if quest completed
         if (quest.delivered >= quest.quantity) {
           gameState.updateGold(quest.reward);
           gameState.completeQuest();
-
-          // Generate new quest
           const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
           gameState.setQuest(newQuest);
         }
-
         updateUI();
         updateTradingUI();
       }
@@ -923,28 +432,23 @@
         updateTradingUI();
       }
 
-      // Enhanced updateUI with quest integration
       function updateUI() {
         document.getElementById("day").textContent = gameState.game.day;
         document.getElementById("gold").textContent = gameState.getGold();
         document.getElementById("location").textContent = gameState.getCurrentLocation().name;
         document.getElementById("inventoryCount").textContent = `${gameState.game.inventory.length}/${gameState.game.rules.gameplay.inventoryLimit}`;
-
         updateInventory();
         updateNews();
         updateTradingUI();
-
         if (window.mapRenderer) mapRenderer.draw();
       }
 
       function updateInventory() {
         const inventory = document.getElementById("inventory");
         const items = {};
-
         gameState.game.inventory.forEach((item) => {
           items[item.id] = (items[item.id] || 0) + 1;
         });
-
         inventory.innerHTML =
           Object.keys(items).length === 0
             ? "<div>Empty</div>"
@@ -952,68 +456,47 @@
                 .map(([id, count]) => {
                   const item = gameState.getItem(id);
                   return `<div class="inventory-item">
-                              <span class="inventory-item-icon">${item.emoji}</span>
-                              <span class="inventory-item-text">${item.name}</span>
-                              <span class="inventory-item-count">x${count}</span>
-                          </div>`;
+                    <span class="inventory-item-icon">${item.emoji}</span>
+                    <span class="inventory-item-text">${item.name}</span>
+                    <span class="inventory-item-count">x${count}</span>
+                </div>`;
                 })
                 .join("");
       }
 
-      // Enhanced updateNews with quest display
       function updateNews() {
         const newsContainer = document.getElementById("news");
         const items = [];
-
-        // Quest status with delivery button
         if (gameState.game.currentQuest) {
           const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
-          const canDeliver = canDeliverQuest();
-
-          // Quest status - always first
-          if (gameState.game.currentQuest) {
-            const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
-            items.push(`<div class="quest-item">
-                          <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
-                          <div class="quest-progress">Progress: ${gameState.game.currentQuest.delivered}/${gameState.game.currentQuest.quantity} ${questItem.name} delivered | Reward: ${gameState.game.currentQuest.reward} gold </div>
-                          <!-- <div class="quest-reward">Reward: ${gameState.game.currentQuest.reward} g</div> -->
-                      </div>`);
-          }
+          items.push(`<div class="quest-item">
+                    <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
+                    <div class="quest-progress">Progress: ${gameState.game.currentQuest.delivered}/${gameState.game.currentQuest.quantity} ${questItem.name} delivered | Reward: ${gameState.game.currentQuest.reward} gold </div>
+                </div>`);
         }
-
-        // Market opportunities
         const current = gameState.getCurrentLocation();
         gameState.game.items.forEach((item) => {
           const price = MarketLogic.getPrice(item.id, gameState.game.location);
           const multiplier = current.multipliers[item.category];
-
           if (multiplier < 0.9) {
             items.push(`<div class="news-item market-opportunity">
-                              ${item.emoji} Great ${item.name} prices here!
-                          </div>`);
+                          ${item.emoji} Great ${item.name} prices here!
+                      </div>`);
           }
         });
-
-        // Fill with generic news
         const genericNews = gameState.game.gameData.genericNews;
         while (items.length < 6) {
           items.push(`<div class="news-item">${genericNews[Math.floor(Math.random() * genericNews.length)]}</div>`);
         }
-
         newsContainer.innerHTML = items.slice(0, 6).join("");
       }
 
       function updateTradingUI() {
         const items = document.getElementById("items");
         const currentLocation = gameState.getCurrentLocation();
-
-        // Update header with location emoji
         const headerEmoji = document.querySelector(".header-left > div");
         headerEmoji.textContent = currentLocation.emoji;
-        // Update location subtitle with flavor text
         document.querySelector(".location-subtitle").textContent = currentLocation.flavorText;
-
-        // Update quest hint
         const questHint = document.getElementById("questHint");
         if (gameState.game.currentQuest) {
           const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
@@ -1022,44 +505,32 @@
           const needed = gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
           const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
           const buttonDisabled = !canDeliver;
-
           questHint.innerHTML = `
-      <div class="quest-banner">
-        <div class="quest-icon">📋</div>
-        <div class="quest-text">
-          <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
-          <div class="quest-progress">You have ${owned}, need ${needed}</div>
-        </div>
-        <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
-          ${buttonText}
-        </button>
+    <div class="quest-banner">
+      <div class="quest-icon">📋</div>
+      <div class="quest-text">
+        <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
+        <div class="quest-progress">You have ${owned}, need ${needed}</div>
       </div>
-    `;
+      <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
+        ${buttonText}
+      </button>
+    </div>
+  `;
         } else {
           questHint.textContent = "No active quest";
         }
-
-        // Update market insight
         const insightText = document.getElementById("insightText");
         const goodDeals = gameState.game.items.filter((item) => {
           const multiplier = currentLocation.multipliers[item.category] || 1.0;
           return multiplier <= 0.9;
         });
         if (goodDeals.length > 0) {
-          const avgDiscount = Math.round(
-            (1 -
-              goodDeals.reduce((sum, item) => {
-                return sum + (currentLocation.multipliers[item.category] || 1.0);
-              }, 0) /
-                goodDeals.length) *
-              100
-          );
+          const avgDiscount = Math.round((1 - goodDeals.reduce((sum, item) => sum + (currentLocation.multipliers[item.category] || 1.0), 0) / goodDeals.length) * 100);
           insightText.textContent = `Great prices here! (${avgDiscount}% below average)`;
         } else {
           insightText.textContent = "Standard market prices";
         }
-
-        // Generate item rows
         items.innerHTML = gameState.game.items
           .map((item) => {
             const price = MarketLogic.getPrice(item.id, gameState.game.location);
@@ -1069,119 +540,56 @@
             const maxSell = MarketLogic.getMaxSellQuantity(item.id);
             const dealQuality = MarketLogic.getDealQuality(item.id);
             const avgPurchasePrice = gameState.getAveragePurchasePrice(item.id);
-
-            // Deal indicator classes and text
-            const dealClasses = {
-              great: "deal-great",
-              good: "deal-good",
-              fair: "deal-fair",
-              poor: "deal-poor",
-            };
-            const dealText = {
-              great: "Great!",
-              good: "Good",
-              fair: "Fair",
-              poor: "Poor",
-            };
-
+            const dealClasses = { great: "deal-great", good: "deal-good", fair: "deal-fair", poor: "deal-poor" };
+            const dealText = { great: "Great!", good: "Good", fair: "Fair", poor: "Poor" };
             const rowClasses = ["item-row"];
-            if (dealQuality === "great" || dealQuality === "good") {
-              rowClasses.push("good-deal");
-            } else if (dealQuality === "poor") {
-              rowClasses.push("bad-deal");
-            }
-
-            if (stock === 0) {
-              rowClasses.push("no-stock");
-            }
-
-            // Item meta text
-            let itemMeta = `Available: ${stock} | You own: <span class="owned-count">${owned}</span>`;
-            if (gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id) {
-              itemMeta += "<br>Perfect for your quest!";
-            } else if (stock <= 2 && stock > 0) {
-              itemMeta += "<br>Limited stock - act fast!";
-            } else if (dealQuality === "poor") {
-              itemMeta += "<br>Overpriced here - try elsewhere";
-            } else if (dealQuality === "great") {
-              itemMeta += "<br>Excellent value!";
-            } else {
-              itemMeta += "<br>Standard market price";
-            }
-
+            if (dealQuality === "great" || dealQuality === "good") rowClasses.push("good-deal");
+            else if (dealQuality === "poor") rowClasses.push("bad-deal");
+            if (stock === 0) rowClasses.push("no-stock");
             const displayPrice = stock === 0 ? "--" : `${price}g${avgPurchasePrice !== null ? ` (${avgPurchasePrice}g avg)` : ""}`;
-
             return `
-        <div class="${rowClasses.join(" ")}">
-          <!-- Item Visual -->
-          <div class="item-visual">
-            <div class="item-icon">${item.emoji}</div>
-            <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
+      <div class="${rowClasses.join(" ")}">
+        <div class="item-visual">
+          <div class="item-icon">${item.emoji}</div>
+          <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
+        </div>
+        <div class="item-info">
+          <div class="item-header">
+            ${item.name}<span class="item-price">${displayPrice}</span>
           </div>
-
-          <!-- Item Info -->
-          <div class="item-info">
-            <div class="item-header">
-              ${item.name}<span class="item-price">${displayPrice}</span>
-            </div>
-            <div class="item-meta">${itemMeta}</div>
-          </div>
-
-          <!-- Buy Controls: Unified - BUY 1 + -->
-          <div class="buy-controls">
-            <div class="quantity-action-row">
-              <button class="quantity-btn" 
-                      onclick="changeQuantity('${item.id}', 'buy', -1)" 
-                      ${maxBuy === 0 ? "disabled" : ""}>−</button>
-              
-              <button class="btn btn-buy action-button" 
-                      onclick="executeTrade('${item.id}', 'buy')" 
-                      ${maxBuy === 0 ? "disabled" : ""}
-                      id="buy-button-${item.id}">
-                BUY <span id="buy-${item.id}">1</span>
-              </button>
-              
-              <button class="quantity-btn" 
-                      onclick="changeQuantity('${item.id}', 'buy', 1)" 
-                      ${maxBuy === 0 ? "disabled" : ""}>+</button>
-            </div>
-
-            <!-- Instant Buy All -->
-            <button class="btn btn-buy action-button" 
-                    onclick="quickBuyAll('${item.id}')"
-                    ${maxBuy === 0 ? "disabled" : ""}>
-              Buy All (${maxBuy})
-            </button>
-          </div>
-
-          <!-- Sell Controls: Unified - SELL 1 + -->
-          <div class="sell-controls">
-            <div class="quantity-action-row">
-              <button class="quantity-btn" 
-                      onclick="changeQuantity('${item.id}', 'sell', -1)" 
-                      ${maxSell === 0 ? "disabled" : ""}>−</button>
-              
-              <button class="btn btn-sell action-button" 
-                      onclick="executeTrade('${item.id}', 'sell')" 
-                      ${maxSell === 0 ? "disabled" : ""}
-                      id="sell-button-${item.id}">
-                SELL <span id="sell-${item.id}">1</span>
-              </button>
-              
-              <button class="quantity-btn" 
-                      onclick="changeQuantity('${item.id}', 'sell', 1)" 
-                      ${maxSell === 0 ? "disabled" : ""}>+</button>
-            </div>
-
-            <!-- Instant Sell All -->
-            <button class="btn btn-sell action-button" 
-                    onclick="quickSellAll('${item.id}')"
-                    ${maxSell === 0 ? "disabled" : ""}>
-              Sell All (${maxSell})
-            </button>
+          <div class="item-meta">Available: ${stock} | You own: <span class="owned-count">${owned}</span>
+            ${gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id ? "<br>Perfect for your quest!" : ""}
+            ${stock <= 2 && stock > 0 ? "<br>Limited stock - act fast!" : ""}
+            ${dealQuality === "poor" ? "<br>Overpriced here - try elsewhere" : ""}
+            ${dealQuality === "great" ? "<br>Excellent value!" : ""}
+            ${dealQuality === "fair" ? "<br>Standard market price" : ""}
           </div>
         </div>
-      `;
+        <div class="buy-controls">
+          <div class="quantity-action-row">
+            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
+            <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
+              BUY <span id="buy-${item.id}">1</span>
+            </button>
+            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
+          </div>
+          <button class="btn btn-buy action-button" onclick="quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
+            Buy All (${maxBuy})
+          </button>
+        </div>
+        <div class="sell-controls">
+          <div class="quantity-action-row">
+            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
+            <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
+              SELL <span id="sell-${item.id}">1</span>
+            </button>
+            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
+          </div>
+          <button class="btn btn-sell action-button" onclick="quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
+            Sell All (${maxSell})
+          </button>
+        </div>
+      </div>`;
           })
           .join("");
       }
@@ -1190,44 +598,21 @@
         const element = document.getElementById(`${type}-${itemId}`);
         let current = parseInt(element.textContent);
         current = Math.max(1, current + delta);
-
-        if (type === "buy") {
-          const maxBuy = MarketLogic.getMaxBuyQuantity(itemId);
-          current = Math.min(current, maxBuy);
-        } else {
-          const maxSell = MarketLogic.getMaxSellQuantity(itemId);
-          current = Math.min(current, maxSell);
-        }
-
-        element.textContent = current;
+        const max = type === "buy" ? MarketLogic.getMaxBuyQuantity(itemId) : MarketLogic.getMaxSellQuantity(itemId);
+        element.textContent = Math.min(current, max);
       }
 
       function executeTrade(itemId, type) {
         const quantity = parseInt(document.getElementById(`${type}-${itemId}`).textContent);
-
-        if (type === "buy") {
-          if (MarketLogic.canBuy(itemId, quantity)) {
-            MarketActions.buy(itemId, quantity);
-          }
-        } else {
-          if (MarketLogic.canSell(itemId, quantity)) {
-            MarketActions.sell(itemId, quantity);
-          }
+        if (type === "buy" && MarketLogic.canBuy(itemId, quantity)) {
+          MarketActions.buy(itemId, quantity);
+        } else if (type === "sell" && MarketLogic.canSell(itemId, quantity)) {
+          MarketActions.sell(itemId, quantity);
         }
-
         updateUI();
         updateTradingUI();
       }
 
-      function setMaxQuantity(itemId, type) {
-        const max = type === "buy" ? MarketLogic.getMaxBuyQuantity(itemId) : MarketLogic.getMaxSellQuantity(itemId);
-        const element = document.getElementById(`${type}-${itemId}`);
-        if (max > 0) {
-          element.textContent = max;
-        }
-      }
-
-      // Instant Buy All
       function quickBuyAll(itemId) {
         const max = MarketLogic.getMaxBuyQuantity(itemId);
         if (max > 0) {
@@ -1237,7 +622,6 @@
         }
       }
 
-      // Instant Sell All
       function quickSellAll(itemId) {
         const max = MarketLogic.getMaxSellQuantity(itemId);
         if (max > 0) {
@@ -1256,56 +640,39 @@
       function resetGame() {
         gameState.reset();
         generateLocations();
-
-        // Generate initial quest
         const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
         gameState.setQuest(initialQuest);
-
         MarketActions.updatePrices();
         MarketActions.updateStock();
-
         document.getElementById("gameOver").style.display = "none";
         showMap();
         updateUI();
       }
 
-      // Seeded grid-based location generation
       function generateLocations() {
         let seedRng = gameState.game.seed;
         function seededRandom() {
           seedRng = (seedRng * 9301 + 49297) % 233280;
           return seedRng / 233280;
         }
-
         const gridWidth = gameState.game.rules.grid.width;
         const gridHeight = gameState.game.rules.grid.height;
         const centerX = Math.floor(gridWidth / 2);
         const centerY = Math.floor(gridHeight / 2);
-
-        // Initialize grid
         gameState.game.locationGrid = Array(gridHeight)
           .fill()
           .map(() => Array(gridWidth).fill(null));
-
         const min = gameState.game.rules.worldGeneration.minLocations;
         const max = gameState.game.rules.worldGeneration.maxLocations;
         const locationCount = Math.floor(seededRandom() * (max - min + 1)) + min;
-
         const templates = gameState.game.gameData.locationTemplates;
-
-        // Always include commons first at center
         gameState.game.locations = [{ ...templates[0] }];
         gameState.game.locationGrid[centerY][centerX] = 0;
-
-        // Add other locations based on distance tiers
         const shuffled = templates.slice(1).sort(() => seededRandom() - 0.5);
         const selectedTemplates = shuffled.slice(0, locationCount - 1);
-
         selectedTemplates.forEach((template, index) => {
           const locationIndex = index + 1;
           const location = { ...template };
-
-          // Determine distance range based on tier
           let minDist, maxDist;
           switch (template.distanceTier) {
             case 1:
@@ -1329,8 +696,6 @@
               maxDist = 4;
               break;
           }
-
-          // Find valid positions at appropriate distance
           const validPositions = [];
           for (let y = 0; y < gridHeight; y++) {
             for (let x = 0; x < gridWidth; x++) {
@@ -1342,14 +707,11 @@
               }
             }
           }
-
-          // Place at random valid position
           if (validPositions.length > 0) {
             const pos = validPositions[Math.floor(seededRandom() * validPositions.length)];
             gameState.game.locationGrid[pos.y][pos.x] = locationIndex;
             gameState.game.locations.push(location);
           } else {
-            // Fallback: place anywhere available
             for (let y = 0; y < gridHeight; y++) {
               for (let x = 0; x < gridWidth; x++) {
                 if (gameState.game.locationGrid[y][x] === null) {
@@ -1364,20 +726,13 @@
         });
       }
 
-      // Load game data from JSON files
       async function loadGameData() {
         try {
-          // Load game rules
           const rulesResponse = await fetch("game_rules.json");
           gameState.game.rules = await rulesResponse.json();
-
-          // Load game data
           const dataResponse = await fetch("game_data.json");
           gameState.game.gameData = await dataResponse.json();
-
-          // Set items from game data
           gameState.game.items = gameState.game.gameData.items;
-
           return true;
         } catch (error) {
           console.error("Failed to load game data:", error);
@@ -1385,41 +740,61 @@
         }
       }
 
-      // Initialize game
+      function fixMapRenderer(ms = 30) {
+        setTimeout(() => {
+          window.dispatchEvent(new Event("resize"));
+          console.log("🎨 MapRenderer: Canvas size fixed with " + ms + " delay");
+        }, ms);
+      }
+
       async function init() {
         try {
-          // Load data first
           const dataLoaded = await loadGameData();
-          if (!dataLoaded) {
-            throw new Error("Failed to load game data");
-          }
-
-          // Set initial gold from rules
+          if (!dataLoaded) throw new Error("Failed to load game data");
           gameState.setGold(gameState.game.rules.gameplay.startingGold);
-
           generateLocations();
-
-          // Generate initial quest
           const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
           gameState.setQuest(initialQuest);
-
           MarketActions.updatePrices();
           MarketActions.updateStock();
 
-          // Initialize map renderer
-          const canvas = document.getElementById("canvas");
-          window.mapRenderer = new MapRenderer(canvas);
+          // Add to init() for debugging
+          console.log("✅ Game data loaded:", gameState.game.rules);
+          console.log("✅ Locations generated:", gameState.game.locations);
+          console.log("✅ Canvas exists:", !!document.getElementById("canvas"));
 
+          window.mapRenderer = new MapRenderer(document.getElementById("canvas"));
           updateUI();
         } catch (error) {
           console.error("Failed to initialize game:", error);
         }
       }
 
-      // Start the game
-      init();
-      window.dispatchEvent(new Event('resize'));
-      window.dispatchEvent(new Event('resize'));
+      // === 6. EXPOSE FUNCTIONS & CLASSES TO HTML ===
+      window.gameState = gameState;
+      window.MapRenderer = MapRenderer;
+      window.GridSystem = GridSystem; // ✅ Required by MapRenderer and travel()
+      window.init = init;
+      window.updateUI = updateUI;
+      window.updateInventory = updateInventory;
+      window.updateNews = updateNews;
+      window.updateTradingUI = updateTradingUI;
+      window.showMap = showMap;
+      window.showTrading = showTrading;
+      window.travel = travel;
+      window.enterLocation = enterLocation;
+      window.deliverQuest = deliverQuest;
+      window.executeTrade = executeTrade;
+      window.changeQuantity = changeQuantity;
+      window.quickBuyAll = quickBuyAll;
+      window.quickSellAll = quickSellAll;
+      window.endGame = endGame;
+      window.resetGame = resetGame;
+      window.generateLocations = generateLocations;
+
+      // === 7. START GAME IMMEDIATELY ===
+      await init(); // No need to delay game logic
+      fixMapRenderer(20);
     </script>
   </body>
 </html>

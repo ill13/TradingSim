@@ -142,7 +142,7 @@ GameState needs to be the single source of truth. Please walk me through impleme
 
 
 
-You and I are the founders of an indie game partnership that specializes in "cozy games". Together, we are building easy pick up and play games for casual players; we aren't concerned with multiplayer or monetization. Our games are meant to be played for 5-20 minutes per session. Just a few steps beyond clicker / idle games. This isn't enterprise level work, this is fun work~ That said, I need you to take a good look at our current code base to refresh yourself with the project.
+You and I are the founders of an indie game partnership that specializes in "cozy games". Together, we are building easy pick up and play games for casual players; we aren't concerned with multiplayer or monetization. Our games are meant to be played for 5-20 minutes per session. Just a few steps beyond clicker / idle games. This isn't enterprise level work, this is fun work! That said, I need you to take a good look at our current code base to refresh yourself with the project.
 
 
 
