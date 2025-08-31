@@ -279,7 +279,6 @@
             gameState.setQuest(newQuest);
           }
           updateUI();
-          //updateTradingUI();
         }
       }
 
@@ -392,33 +391,21 @@
           }
         }
 
-
-
-      static quickBuyAll(itemId) {
-        const max = MarketLogic.getMaxBuyQuantity(itemId);
-        if (max > 0) {
-          MarketActions.buy(itemId, max);
-          updateUI();
-          //updateTradingUI();
+        static quickBuyAll(itemId) {
+          const max = MarketLogic.getMaxBuyQuantity(itemId);
+          if (max > 0) {
+            MarketActions.buy(itemId, max);
+            updateUI();
+          }
         }
-      }
 
-      static quickSellAll(itemId) {
-        const max = MarketLogic.getMaxSellQuantity(itemId);
-        if (max > 0) {
-          MarketActions.sell(itemId, max);
-          updateUI();
-          //updateTradingUI();
+        static quickSellAll(itemId) {
+          const max = MarketLogic.getMaxSellQuantity(itemId);
+          if (max > 0) {
+            MarketActions.sell(itemId, max);
+            updateUI();
+          }
         }
-      }
-
-
-
-
-
-
-
-
 
         static updatePrices() {
           const prices = MarketLogic.generatePrices();
@@ -521,7 +508,6 @@
       }
 
       function updateTradingUI() {
-
         const items = document.getElementById("items");
         const currentLocation = gameState.getCurrentLocation();
         const headerEmoji = document.querySelector(".header-left > div");
@@ -640,9 +626,7 @@
           MarketActions.sell(itemId, quantity);
         }
         updateUI();
-        //updateTradingUI();
       }
-
 
       function endGame() {
         const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
