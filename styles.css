@@ -80,6 +80,7 @@ body {
 .game-container {
     width: 100%;
     height: calc(100vh - calc(var(--game-padding) * 2));
+    /* height: 100%; */
     border: var(--border-width) solid var(--theme-border-accent);
     border-radius: var(--border-radius);
     overflow: hidden;

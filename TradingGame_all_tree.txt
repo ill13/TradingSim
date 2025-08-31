@@ -1,0 +1,19 @@
+All File Tree for 'TradingGame' - Generated 2025-08-31 09:58:16
+Mode: all
+Tiktoken available: True
+Encoding: cl100k_base
+==================================================
+
+├── game_data.json [[92m1,426[0m tokens]
+├── game_rules.json [[92m218[0m tokens]
+├── index.html 🔥[[92m12,850[0m tokens]
+├── styles.css ⚠️ [[92m4,203[0m tokens]
+
+==================================================
+SUMMARY
+==================================================
+Total files: 4
+Total tokens: [92m18,697[0m
+Status: GREEN
+Red threshold: 180,000
+Yellow threshold: 120,000

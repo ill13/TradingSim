@@ -53,8 +53,11 @@
     "stuff",
     "history",
     "texttones",
-    "ill13".
-    "color"
+    "ill13",
+    "color",
+    "tmp",
+    ".git"
+
   ],
   "backend_extensions": [
     "py",

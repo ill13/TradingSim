@@ -1,3 +1,177 @@
+All files from 'TradingGame'
+Generated: 2025-08-31 09:58:16
+Mode: all
+Included extensions: yaml, py, scss, ts, ini, jsx, js, jpeg, png, vue, cfg, html, sass, css, yml, jpg, tiff, toml, webp, less, tsx, svg, gif, bmp, txt, json
+Tiktoken available: True
+Encoding: cl100k_base
+==================================================
+
+==================================================
+FILE: game_data.json
+MODIFIED: 2025-08-29 18:20:20
+TOKENS: [92m1,426[0m
+==================================================
+
+{
+  "items": [
+    { "id": "fish", "name": "Fish", "emoji": "🐟", "category": "basic", "basePrice": 8 },
+    { "id": "herbs", "name": "Herbs", "emoji": "🌿", "category": "basic", "basePrice": 12 },
+    { "id": "grain", "name": "Grain", "emoji": "🌾", "category": "basic", "basePrice": 6 },
+    { "id": "tools", "name": "Tools", "emoji": "🔨", "category": "quality", "basePrice": 20 },
+    { "id": "cloth", "name": "Cloth", "emoji": "🧵", "category": "quality", "basePrice": 15 },
+    { "id": "pottery", "name": "Pottery", "emoji": "🏺", "category": "quality", "basePrice": 18 },
+    { "id": "gems", "name": "Gems", "emoji": "💎", "category": "premium", "basePrice": 45 },
+    { "id": "artifacts", "name": "Artifacts", "emoji": "🗿", "category": "premium", "basePrice": 55 },
+    { "id": "spices", "name": "Spices", "emoji": "🌶️", "category": "premium", "basePrice": 35 }
+  ],
+  "locationTemplates": [
+    { 
+      "id": "commons", 
+      "name": "The Commons", 
+      "emoji": "🏘️",
+      "description": "A bustling village square where locals gather to trade daily necessities",
+      "flavorText": "\"Fair prices for honest folk\"",
+      "multipliers": { "basic": 0.9, "quality": 1.0, "premium": 1.3 },
+      "travelTime" : 1,
+      "distanceTier": 1
+    },
+    { 
+      "id": "wharf", 
+      "name": "Ocean Wharf", 
+      "emoji": "⚓",
+      "description": "A busy harbor where merchant ships bring fresh catches and exotic goods",
+      "flavorText": "\"Fresh from the morning nets\"",
+      "multipliers": { "basic": 0.7, "quality": 1.1, "premium": 1.4 },
+      "travelTime" : 2,
+      "distanceTier": 2
+    },
+    { 
+      "id": "cottage", 
+      "name": "Bramble Cottage", 
+      "emoji": "🏚️",
+      "description": "An herbalist's home surrounded by wild gardens and drying racks",
+      "flavorText": "\"Picked at dawn when the magic is strongest\"",
+      "multipliers": { "basic": 0.8, "quality": 1.3, "premium": 1.1 },
+       "travelTime" : 1,
+       "distanceTier": 2
+    },
+    { 
+      "id": "peak", 
+      "name": "Dragon's Peak", 
+      "emoji": "⛰️",
+      "description": "A treacherous mountain settlement where treasures are as dangerous as they are valuable",
+      "flavorText": "\"Fortune favors the bold, but demands its price\"",
+      "multipliers": { "basic": 1.4, "quality": 1.2, "premium": 0.8 },
+       "travelTime" : 2,
+       "distanceTier": 4
+    },
+    { 
+      "id": "forge", 
+      "name": "Iron Forge", 
+      "emoji": "⚒️",
+      "description": "A smoky workshop where skilled artisans craft tools and trade materials",
+      "flavorText": "\"Forged with skill, built to last\"",
+      "multipliers": { "basic": 1.1, "quality": 0.8, "premium": 1.2 }, 
+      "travelTime" : 1,
+      "distanceTier": 2
+    },
+    { 
+      "id": "sanctum", 
+      "name": "Crystal Sanctum", 
+      "emoji": "🔮",
+      "description": "A mysterious tower where scholars study ancient artifacts and rare minerals",
+      "flavorText": "\"Knowledge is the rarest treasure of all\"",
+      "multipliers": { "basic": 1.2, "quality": 1.1, "premium": 0.9 },
+      "travelTime" : 1,
+      "distanceTier": 3
+    },
+    { 
+      "id": "crossroads", 
+      "name": "Dusty Crossroads", 
+      "emoji": "🛤️",
+      "description": "A remote trading post where weary travelers rest and merchants meet",
+      "flavorText": "\"All roads lead somewhere, all trades lead here\"",
+      "multipliers": { "basic": 1.0, "quality": 1.0, "premium": 1.0 },
+      "travelTime" : 1,
+      "distanceTier": 2
+    },
+    { 
+      "id": "ruins", 
+      "name": "Ancient Ruins", 
+      "emoji": "🏛️",
+      "description": "Crumbling stones hide forgotten treasures and desperate scavengers",
+      "flavorText": "\"What the old world lost, the new world seeks\"",
+      "multipliers": { "basic": 1.3, "quality": 1.4, "premium": 0.7 },
+      "travelTime" : 1,
+      "distanceTier": 4
+    }
+  ],
+  "categoryLabels": {
+    "basic": "Common",
+    "quality": "Crafted", 
+    "premium": "Rare"
+  },
+  "genericNews": [
+    "🎪 Traveling merchants report good business along the trade routes",
+    "⛈️ Storm clouds gathering - sailors speak of rough seas ahead",
+    "🎭 Festival season brings new opportunities to the markets",
+    "📈 Trade guilds opening new routes through the eastern passes",
+    "🌾 Harvest reports vary wildly from region to region",
+    "⚔️ Rumors of bandits on the mountain roads grow stronger",
+    "🔥 The forges burn bright with increased demand for tools",
+    "🌙 Night merchants whisper of rare finds in distant ruins"
+  ]
+}
+
+==================================================
+FILE: game_rules.json
+MODIFIED: 2025-08-31 00:55:26
+TOKENS: [92m218[0m
+==================================================
+
+{
+    "gameplay": {
+        "maxDays": 30,
+        "startingGold": 100,
+        "inventoryLimit": 20
+    },
+    "grid": {
+        "width": 32,
+        "height": 32
+    },
+    "worldGeneration": {
+        "minLocations": 3,
+        "maxLocations": 8
+    },
+    "pricing": {
+        "seasonal": {
+            "min": 0.8,
+            "range": 0.4
+        },
+        "daily": {
+            "min": 0.9,
+            "range": 0.2
+        },
+        "saturation": {
+            "threshold": 3,
+            "penaltyRate": 0.3,
+            "decayRate": 0.3,
+            "maxSaturation": 5,
+            "buyingSaturationRate": 0.5
+        }
+    },
+    "stock": {
+        "minStock": 5,
+        "stockRange": 15
+    }
+}
+
+==================================================
+FILE: index.html
+MODIFIED: 2025-08-31 09:50:00
+TOKENS: [92m12,850[0m
+==================================================
+
 <!DOCTYPE html>
 <html lang="en">
   <head>
@@ -599,7 +773,221 @@
         }
       }
 
-  
+      // Map Renderer - Fixed version
+      class MapRenderer_old {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext("2d");
+
+          // Event listeners
+          canvas.addEventListener("click", this.handleClick.bind(this));
+          canvas.addEventListener("mousemove", this.handleMouseMove.bind(this));
+
+          // Handle window resize
+          window.addEventListener("resize", () => {
+            this.updateCanvasSize();
+            this.positionLocations();
+            this.draw();
+          });
+
+          // Defer initial setup to ensure DOM is ready
+          requestAnimationFrame(() => {
+            this.updateCanvasSize();
+            this.positionLocations();
+            this.draw();
+          });
+        }
+
+        updateCanvasSize() {
+          const rect = this.canvas.getBoundingClientRect();
+
+          // Set canvas internal resolution to match display size
+          const dpr = window.devicePixelRatio || 1;
+          this.canvas.width = rect.width * dpr;
+          this.canvas.height = rect.height * dpr;
+
+          // Scale context to match device pixel ratio
+          this.ctx.scale(dpr, dpr);
+
+          // Store display dimensions for calculations
+          this.displayWidth = rect.width;
+          this.displayHeight = rect.height;
+        }
+
+        positionLocations() {
+          const margin = 80;
+          const w = this.displayWidth - 2 * margin;
+          const h = this.displayHeight - 2 * margin;
+          const minSeparation = 100; // Minimum distance between locations
+
+          gameState.game.locations.forEach((location, i) => {
+            const gridPos = GridSystem.findLocationPosition(i);
+            if (gridPos) {
+              const gridWidth = gameState.game.rules.grid.width;
+              const gridHeight = gameState.game.rules.grid.height;
+
+              // Convert grid coordinates to canvas coordinates
+              let x = margin + (gridPos.x / (gridWidth - 1)) * w;
+              let y = margin + (gridPos.y / (gridHeight - 1)) * h;
+
+              // Add deterministic offset for natural appearance
+              const locationSeed = gameState.game.seed + i * 17;
+              const pseudoRand1 = ((locationSeed * 9301 + 49297) % 233280) / 233280;
+              const pseudoRand2 = (((locationSeed + 1) * 9301 + 49297) % 233280) / 233280;
+
+              const offset = 30;
+              x += (pseudoRand1 - 0.5) * offset;
+              y += (pseudoRand2 - 0.5) * offset;
+
+              // Ensure minimum separation from other locations
+              let attempts = 0;
+              while (attempts < 50) {
+                let tooClose = false;
+                for (let j = 0; j < i; j++) {
+                  const other = gameState.game.locations[j];
+                  if (other.x !== undefined && other.y !== undefined) {
+                    const dist = Math.sqrt((x - other.x) ** 2 + (y - other.y) ** 2);
+                    if (dist < minSeparation) {
+                      tooClose = true;
+                      break;
+                    }
+                  }
+                }
+
+                if (!tooClose) break;
+
+                // Try a new position with larger offset
+                const newSeed = locationSeed + attempts * 7;
+                const newRand1 = ((newSeed * 9301 + 49297) % 233280) / 233280;
+                const newRand2 = (((newSeed + 1) * 9301 + 49297) % 233280) / 233280;
+
+                x = margin + (gridPos.x / (gridWidth - 1)) * w;
+                y = margin + (gridPos.y / (gridHeight - 1)) * h;
+                x += (newRand1 - 0.5) * (offset + attempts * 10);
+                y += (newRand2 - 0.5) * (offset + attempts * 10);
+
+                attempts++;
+              }
+
+              // Keep in bounds with padding for click radius
+              location.x = Math.max(margin + 50, Math.min(this.displayWidth - margin - 50, x));
+              location.y = Math.max(margin + 50, Math.min(this.displayHeight - margin - 50, y));
+            }
+          });
+        }
+
+        draw() {
+          // Clear with proper dimensions
+          this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
+
+          // Draw roads
+          this.drawRoads();
+
+          // Draw locations
+          gameState.game.locations.forEach((location, i) => {
+            const isPlayer = i === gameState.game.location;
+            const radius = 40;
+
+            // Circle
+            this.ctx.beginPath();
+            this.ctx.arc(location.x, location.y, radius, 0, Math.PI * 2);
+            this.ctx.fillStyle = isPlayer ? "#4a5a35" : "#2d2d20";
+            this.ctx.fill();
+            this.ctx.strokeStyle = isPlayer ? "#ffd700" : "#6a6a45";
+            this.ctx.lineWidth = isPlayer ? 3 : 1;
+            this.ctx.stroke();
+
+            // Emoji
+            this.ctx.font = "24px Arial";
+            this.ctx.textAlign = "center";
+            this.ctx.textBaseline = "middle";
+            this.ctx.fillStyle = "#f4e4bc";
+            this.ctx.fillText(location.emoji, location.x, location.y);
+
+            // Name
+            this.ctx.font = "bold 14px Arial";
+            this.ctx.textBaseline = "top";
+            this.ctx.fillText(location.name, location.x, location.y + radius + 8);
+          });
+        }
+
+        drawRoads() {
+          this.ctx.strokeStyle = "#8b7355";
+          this.ctx.lineWidth = 2;
+
+          // Connect each location to 2-3 nearest neighbors for visual splines
+          gameState.game.locations.forEach((from, i) => {
+            const distances = gameState.game.locations
+              .map((to, j) => ({
+                index: j,
+                dist: Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2),
+              }))
+              .filter((d) => d.index !== i)
+              .sort((a, b) => a.dist - b.dist)
+              .slice(0, 2);
+
+            distances.forEach(({ index }) => {
+              const to = gameState.game.locations[index];
+
+              // Draw curved road
+              const midX = (from.x + to.x) / 2;
+              const midY = (from.y + to.y) / 2;
+              const dx = to.x - from.x;
+              const dy = to.y - from.y;
+              const dist = Math.sqrt(dx * dx + dy * dy);
+
+              const perpX = (-dy / dist) * 20;
+              const perpY = (dx / dist) * 20;
+
+              this.ctx.beginPath();
+              this.ctx.moveTo(from.x, from.y);
+              this.ctx.quadraticCurveTo(midX + perpX, midY + perpY, to.x, to.y);
+              this.ctx.stroke();
+            });
+          });
+        }
+
+        handleClick(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          gameState.game.locations.forEach((location, i) => {
+            const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+            if (dist <= 40) {
+              if (i !== gameState.game.location) {
+                travel(i);
+              } else {
+                enterLocation(i);
+              }
+            }
+          });
+        }
+
+        handleMouseMove(e) {
+          const rect = this.canvas.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+
+          let hoverLocation = null;
+          gameState.game.locations.forEach((location, i) => {
+            const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+            if (dist <= 40 && i !== gameState.game.location) {
+              hoverLocation = i;
+            }
+          });
+
+          if (hoverLocation !== null) {
+            const travelTime = GridSystem.getGridDistance(gameState.game.location, hoverLocation);
+            this.canvas.title = `${gameState.game.locations[hoverLocation].name} - ${travelTime} days travel`;
+            this.canvas.style.cursor = "pointer";
+          } else {
+            this.canvas.title = "";
+            this.canvas.style.cursor = "default";
+          }
+        }
+      }
+
       // Map Renderer - Enhanced with Visual Travel Paths & Custom Tooltip
       class MapRenderer {
         constructor(canvas) {
@@ -1423,3 +1811,686 @@
     </script>
   </body>
 </html>
+
+
+==================================================
+FILE: styles.css
+MODIFIED: 2025-08-31 00:36:09
+TOKENS: [92m4,203[0m
+==================================================
+
+* {
+    box-sizing: border-box;
+}
+
+
+
+
+body {
+    margin: 0;
+    padding: var(--game-padding);
+    font-family: 'Consolas', monospace;
+    background: var(--theme-bg-primary);
+    color: var(--theme-text-primary);
+    overflow: hidden;
+    font-size: 10px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: geometricPrecision;
+}
+
+/* === 🧱 CSS VARIABLES: HIGH FANTASY MEDIEVAL THEME === */
+:root {
+    /* === 🔹 CORE THEME PALETTE (Medieval Fantasy) === */
+    --theme-bg-primary: linear-gradient(135deg, #1a2a1a, #2d3d20);
+    --theme-bg-secondary: linear-gradient(90deg, #3a2818, #5d4037);
+    --theme-bg-panel: #3a2818;
+    --theme-bg-content: #2c2418;
+    --theme-bg-item: #383020;
+    --theme-bg-quest: linear-gradient(135deg, #3a2818, rgba(93, 64, 55, 0.3));
+    --theme-bg-inventory: #2c2418;
+
+    --theme-border-primary: #5d4037;
+    --theme-border-accent: #d4af37; /* Gold */
+    --theme-border-quest: #8b7355; /* Bronze */
+
+    --theme-text-primary: #e8dcc5;
+    --theme-text-gold: #d4af37;
+    --theme-text-quest: #c2a366;
+    --theme-text-muted: #8b7355;
+    --theme-text-highlight: #a67c52;
+    --theme-text-bg-alpha: rgba(0, 0, 0, 0.4);
+
+    /* === 🎨 MATERIAL INSPIRED COLORS === */
+    --color-wood-dark: #4e3b27;
+    --color-stone: #6b6b5b;
+    --color-iron: #5a5a6a;
+    --color-gold: #d4af37;
+    --color-bronze: #b08d57;
+    --color-emerald: #3a9d7f;
+    --color-ruby: #9e1d22;
+    --color-sapphire: #2a5ca8;
+
+    /* === 📐 LAYOUT CONSTANTS === */
+    --header-height: 70px;
+    --panel-padding: 16px;
+    --content-gap: 6px;
+    --border-radius: 6px;
+    --border-width: 2px;
+    --game-padding: 16px;
+    --item-padding: 4px;
+    --shadow-game: 0 0 20px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(212, 175, 55, 0.2);
+
+    /* === 🔁 LEGACY ALIASES (For backward compatibility) === */
+    --bg-primary: var(--theme-bg-primary);
+    --bg-secondary: var(--theme-bg-secondary);
+    --bg-tertiary: var(--theme-bg-panel);
+    --bg-panel: var(--theme-bg-panel);
+    --bg-item: var(--theme-bg-item);
+    --bg-news: var(--theme-bg-content);
+    --bg-inventory: var(--theme-bg-inventory);
+    --border-primary: var(--theme-border-primary);
+    --border-accent: var(--theme-border-accent);
+    --text-primary: var(--theme-text-primary);
+    --text-gold: var(--theme-text-gold);
+    --text-muted: var(--theme-text-muted);
+    --text-highlight: var(--theme-text-highlight);
+}
+
+/* === 🏗️ BASE LAYOUT === */
+.game-container {
+    width: 100%;
+    height: calc(100vh - calc(var(--game-padding) * 2));
+    /* height: 100%; */
+    border: var(--border-width) solid var(--theme-border-accent);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    background: var(--theme-bg-primary);
+    box-shadow: var(--shadow-game);
+    display: flex;
+    flex-direction: column;
+}
+
+.screen {
+    width: 100%;
+    height: calc(100% - var(--header-height));
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.hidden {
+    display: none;
+}
+
+/* === 📢 HEADER STYLES === */
+.header {
+    background: var(--theme-bg-secondary);
+    padding: 12px 24px;
+    border-bottom: 3px solid var(--theme-border-accent);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: var(--header-height);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--content-gap);
+}
+
+.location-display {
+    display: flex;
+    flex-direction: column;
+    gap: var(--content-gap);
+}
+
+.location-name {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: var(--theme-text-gold);
+    text-shadow: var(--shadow-game);
+}
+
+.location-subtitle {
+    font-size: 0.7rem;
+    color: var(--theme-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.header-stats {
+    display: flex;
+    gap: var(--content-gap);
+    font-size: 0.7rem;
+}
+
+.stat-item {
+    padding: var(--item-padding);
+    background: var(--theme-text-bg-alpha);
+    border-radius: var(--border-radius);
+    border: var(--border-width) solid var(--theme-border-primary);
+}
+
+.stat-label {
+    color: var(--theme-text-muted);
+}
+
+.stat-value {
+    color: var(--theme-text-gold);
+    font-weight: bold;
+}
+
+/* === 🗺️ MAP AREA === */
+#mapArea {
+    height: 60%;
+    cursor: pointer;
+}
+
+canvas {
+  width: 100%;
+  height: 100%;
+  image-rendering: -webkit-optimize-contrast; /* Optional: crisper edges */
+}
+
+/* === 📦 PANELS LAYOUT === */
+.panels {
+    height: 40%;
+    display: flex;
+}
+
+.panel {
+    padding: var(--panel-padding);
+    background: var(--theme-bg-panel);
+    border: var(--border-width) solid var(--theme-border-primary);
+    display: flex;
+    flex-direction: column;
+}
+
+.news-panel {
+    flex: 2;
+    border-right: 1px solid var(--theme-border-primary);
+}
+
+.inventory-panel {
+    flex: 1;
+}
+
+.panel h3 {
+    margin: 0 0 12px 0;
+    color: var(--theme-text-gold);
+    font-size: 0.8rem;
+    text-shadow: var(--shadow-game);
+    border-bottom: var(--border-width) solid var(--theme-border-accent);
+    padding-bottom: 8px;
+}
+
+.panel-content {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+}
+
+/* === 📜 QUEST STYLING === */
+.quest-item {
+    background: var(--theme-bg-quest);
+    border: var(--border-width) solid var(--theme-border-quest);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    margin: 8px 0;
+    position: relative;
+}
+
+.quest-item::before {
+    content: "📋";
+    position: absolute;
+    top: -10px;
+    left: -2px;
+    background: var(--theme-border-quest);
+    width: 18px;
+    height: 18px;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    border: var(--border-width) solid var(--theme-border-accent);
+}
+
+.quest-title {
+    color: var(--theme-text-quest);
+    font-weight: bold;
+    margin-bottom: 4px;
+    font-size: 0.8rem;
+}
+
+.quest-progress {
+    color: var(--theme-text-highlight);
+    font-size: 0.8rem;
+}
+
+.quest-reward {
+    color: var(--theme-text-muted);
+    font-size: 0.8rem;
+    margin-top: 4px;
+}
+
+.quest-status {
+    display: flex;
+    align-items: center;
+    gap: var(--content-gap);
+    font-size: 0.8rem;
+}
+
+.quest-status::before {
+    content: "📋";
+    position: absolute;
+    top: -8px;
+    left: 8px;
+    background: var(--theme-border-quest);
+    width: 20px;
+    height: 20px;
+    border-radius: var(--border-radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    border: var(--border-width) solid var(--theme-border-accent);
+    z-index: 2;
+}
+
+.quest-status::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 60px;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(139, 69, 19, 0.3));
+    pointer-events: none;
+}
+
+.status-icon {
+    font-size: 0.8rem;
+    color: var(--color-ruby);
+}
+
+.status-text {
+    color: var(--theme-text-muted);
+    font-weight: bold;
+}
+
+/* === 📰 NEWS & MARKET ITEMS === */
+.news-item {
+    background: var(--theme-bg-content);
+    border: 1px solid var(--theme-border-primary);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    margin: 8px 0;
+    font-size: 0.8rem;
+    border-left: 4px solid var(--theme-border-accent);
+}
+
+.market-opportunity {
+    border-left-color: var(--color-emerald);
+}
+
+.market-insight {
+    background: var(--theme-bg-panel);
+    border: 1px solid var(--theme-border-primary);
+    border-radius: var(--border-radius);
+    padding: 12px;
+    margin: 8px 0;
+    font-size: 0.8rem;
+    border-left: 4px solid var(--theme-text-highlight);
+    display: flex;
+    align-items: center;
+    gap: var(--content-gap);
+}
+
+/* === 🎒 INVENTORY STYLES === */
+.inventory-count {
+    color: var(--theme-text-muted);
+    font-size: 0.8rem;
+}
+
+.inventory-item {
+    display: flex;
+    align-items: center;
+    gap: var(--content-gap);
+    padding: 8px;
+    background: var(--theme-bg-item);
+    border-radius: var(--border-radius);
+    margin: 8px 0;
+    border: 1px solid var(--theme-border-primary);
+}
+
+.inventory-item-icon {
+    font-size: 1.2rem;
+}
+
+.inventory-item-text {
+    flex: 1;
+}
+
+.inventory-item-count {
+    color: var(--theme-text-muted);
+    font-size: 0.8rem;
+}
+
+/* === 💱 TRADING SCREEN === */
+.trading-screen {
+    padding: var(--panel-padding);
+    background: var(--theme-bg-panel);
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.trading-screen h2 {
+    color: var(--theme-text-gold);
+    text-align: center;
+    margin-bottom: 12px;
+    font-size: 1.3rem;
+    text-shadow: var(--shadow-game);
+}
+
+.quest-hint {
+    color: var(--theme-text-quest);
+    font-size: 0.8rem;
+}
+
+.items-container {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    margin-bottom: 16px;
+    min-height: 0;
+}
+
+.item-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    gap: calc(var(--content-gap) + 0px);
+    align-items: center;
+    padding: 1px 12px;
+    margin: 2px 0;
+    background: var(--theme-bg-item);
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--theme-border-primary);
+    transition: all 0.2s;
+}
+
+.item-row:hover {
+    transform: translateX(4px);
+    box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.item-row.good-deal {
+    border-left-color: var(--color-emerald);
+    background: var(--theme-bg-content);
+}
+
+.item-row.bad-deal {
+    border-left-color: var(--color-ruby);
+    background: linear-gradient(135deg, var(--theme-bg-item), rgba(158, 29, 34, 0.1));
+}
+
+.item-visual {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--content-gap);
+}
+
+.item-icon {
+    font-size: 2rem;
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.deal-indicator {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: var(--border-radius);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    min-width: 45px;
+    text-align: center;
+}
+
+.deal-great {
+    background: var(--color-emerald);
+    color: var(--theme-bg-primary);
+}
+
+.deal-good {
+    background: var(--color-bronze);
+    color: var(--theme-text-primary);
+}
+
+.deal-fair {
+    background: var(--theme-border-primary);
+    color: var(--theme-text-muted);
+}
+
+.deal-poor {
+    background: var(--color-ruby);
+    color: white;
+}
+
+.item-info {
+    flex: 1;
+}
+
+.item-header {
+    color: var(--theme-text-gold);
+    display: flex;
+    align-items: center;
+    font-size: 1.0rem;
+    font-weight: bold;
+    margin-bottom: 4px;
+}
+
+.item-price {
+    color: var(--theme-text-gold);
+    font-weight: bold;
+    font-size: 0.8rem;
+    margin-left: 6px;
+}
+
+.item-meta {
+    color: var(--theme-text-muted);
+    font-size: 0.8rem;
+    line-height: 1.3;
+}
+
+.owned-count {
+    color: var(--theme-text-gold);
+    font-weight: bold;
+}
+
+/* === BUTTONS === */
+.btn {
+    border: none;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-weight: bold;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+    flex: 1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.btn-primary {
+    background: var(--color-wood-dark);
+    color: var(--theme-text-gold);
+}
+
+.btn-buy {
+    background: var(--theme-border-accent);
+    color: var(--theme-bg-primary);
+}
+
+.btn-sell {
+    background: var(--color-ruby);
+    color: var(--theme-text-primary);
+}
+
+.btn-back {
+    background: var(--theme-border-primary);
+    color: var(--theme-text-gold);
+}
+
+.btn-quest {
+    background: var(--theme-border-primary);
+    color: var(--theme-text-primary);
+    margin-top: 8px;
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    width: 100%;
+}
+
+.btn-quest:disabled {
+    background: var(--theme-border-primary);
+    color: var(--theme-text-muted);
+}
+
+/* === FOOTER & SCROLLBAR === */
+.trading-footer {
+    padding: 12px;
+    border-top: var(--border-width) solid var(--theme-border-accent);
+    background: var(--theme-bg-secondary);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.no-stock {
+    opacity: 0.6;
+}
+
+.items-container::-webkit-scrollbar {
+    width: 8px;
+}
+
+.items-container::-webkit-scrollbar-track {
+    border-radius: var(--border-radius);
+}
+
+.items-container::-webkit-scrollbar-thumb {
+    background: var(--theme-border-accent);
+    border-radius: var(--border-radius);
+}
+
+.items-container::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-text-gold);
+}
+
+/* === GAME OVER SCREEN === */
+.game-over {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: var(--theme-text-bg-alpha);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+/* === QUEST BANNER === */
+.quest-banner {
+    background: var(--theme-bg-quest);
+    border: var(--border-width) solid var(--theme-border-quest);
+    border-radius: var(--border-radius);
+    padding: var(--game-padding);
+    display: flex;
+    align-items: center;
+    gap: var(--content-gap);
+    position: relative;
+    overflow: hidden;
+    flex-wrap: wrap;
+}
+
+.quest-icon {
+    font-size: 1.2rem;
+    color: var(--theme-text-gold);
+    filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.quest-text {
+    flex: 1;
+    min-width: 0;
+}
+
+#questHint {
+    color: var(--theme-text-quest);
+    font-size: 0.95rem;
+    line-height: 1.4;
+    padding-left: 4px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Unified quantity-action row */
+.quantity-action-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+/* Make the middle button wider and more prominent */
+.action-button {
+  font-size: 0.9rem;
+  font-weight: bold;
+  padding: 8px 12px;
+  flex: 1;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Press animation */
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* Buy All / Sell All styling */
+.btn-buy-all,
+.btn-sell-all {
+  font-size: 0.8rem;
+  padding: 6px;
+  border: 1px solid var(--theme-border-accent);
+}
+

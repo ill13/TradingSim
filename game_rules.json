@@ -5,8 +5,8 @@
         "inventoryLimit": 20
     },
     "grid": {
-        "width": 15,
-        "height": 15
+        "width": 32,
+        "height": 32
     },
     "worldGeneration": {
         "minLocations": 3,
