@@ -1,0 +1,36 @@
+{
+    "gameplay": {
+        "maxDays": 30,
+        "startingGold": 100,
+        "inventoryLimit": 20
+    },
+    "grid": {
+        "width": 15,
+        "height": 15
+    },
+    "worldGeneration": {
+        "minLocations": 3,
+        "maxLocations": 8
+    },
+    "pricing": {
+        "seasonal": {
+            "min": 0.8,
+            "range": 0.4
+        },
+        "daily": {
+            "min": 0.9,
+            "range": 0.2
+        },
+        "saturation": {
+            "threshold": 3,
+            "penaltyRate": 0.3,
+            "decayRate": 0.3,
+            "maxSaturation": 5,
+            "buyingSaturationRate": 0.5
+        }
+    },
+    "stock": {
+        "minStock": 5,
+        "stockRange": 15
+    }
+}
