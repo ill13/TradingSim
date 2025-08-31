@@ -3,7 +3,8 @@
 /old
 /tmp
 
-.zip
+*.zip
+*.txt
 
 # compiled output
 /dist

@@ -255,6 +255,32 @@
             gameState.setQuest(newQuest);
           }
         }
+
+        static updateNewsUI() {
+          if (!gameState.game.currentQuest) return false;
+          const currentLocationName = gameState.getCurrentLocation().name;
+          const targetMatch = currentLocationName === gameState.game.currentQuest.targetLocationName;
+          const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
+          const hasEnoughItems = questItemCount >= gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
+          return targetMatch && hasEnoughItems;
+        }
+
+        static deliverQuest() {
+          if (!QuestLogic.updateNewsUI()) return;
+          const quest = gameState.game.currentQuest;
+          const questItemCount = gameState.getInventoryCount(quest.itemId);
+          const deliverAmount = Math.min(questItemCount, quest.quantity - quest.delivered);
+          gameState.removeFromInventory(quest.itemId, deliverAmount);
+          gameState.updateQuestDelivered(deliverAmount);
+          if (quest.delivered >= quest.quantity) {
+            gameState.updateGold(quest.reward);
+            gameState.completeQuest();
+            const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
+            gameState.setQuest(newQuest);
+          }
+          updateUI();
+          //updateTradingUI();
+        }
       }
 
       // Market Logic
@@ -365,6 +391,35 @@
             gameState.setSaturation(satKey, newSaturation);
           }
         }
+
+
+
+      static quickBuyAll(itemId) {
+        const max = MarketLogic.getMaxBuyQuantity(itemId);
+        if (max > 0) {
+          MarketActions.buy(itemId, max);
+          updateUI();
+          //updateTradingUI();
+        }
+      }
+
+      static quickSellAll(itemId) {
+        const max = MarketLogic.getMaxSellQuantity(itemId);
+        if (max > 0) {
+          MarketActions.sell(itemId, max);
+          updateUI();
+          //updateTradingUI();
+        }
+      }
+
+
+
+
+
+
+
+
+
         static updatePrices() {
           const prices = MarketLogic.generatePrices();
           gameState.setPrices(prices);
@@ -395,32 +450,6 @@
         showTrading();
       }
 
-      function canDeliverQuest() {
-        if (!gameState.game.currentQuest) return false;
-        const currentLocationName = gameState.getCurrentLocation().name;
-        const targetMatch = currentLocationName === gameState.game.currentQuest.targetLocationName;
-        const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
-        const hasEnoughItems = questItemCount >= gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
-        return targetMatch && hasEnoughItems;
-      }
-
-      function deliverQuest() {
-        if (!canDeliverQuest()) return;
-        const quest = gameState.game.currentQuest;
-        const questItemCount = gameState.getInventoryCount(quest.itemId);
-        const deliverAmount = Math.min(questItemCount, quest.quantity - quest.delivered);
-        gameState.removeFromInventory(quest.itemId, deliverAmount);
-        gameState.updateQuestDelivered(deliverAmount);
-        if (quest.delivered >= quest.quantity) {
-          gameState.updateGold(quest.reward);
-          gameState.completeQuest();
-          const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
-          gameState.setQuest(newQuest);
-        }
-        updateUI();
-        updateTradingUI();
-      }
-
       function showMap() {
         document.getElementById("mapScreen").classList.remove("hidden");
         document.getElementById("tradingScreen").classList.add("hidden");
@@ -429,7 +458,7 @@
       function showTrading() {
         document.getElementById("mapScreen").classList.add("hidden");
         document.getElementById("tradingScreen").classList.remove("hidden");
-        updateTradingUI();
+        updateUI();
       }
 
       function updateUI() {
@@ -437,13 +466,13 @@
         document.getElementById("gold").textContent = gameState.getGold();
         document.getElementById("location").textContent = gameState.getCurrentLocation().name;
         document.getElementById("inventoryCount").textContent = `${gameState.game.inventory.length}/${gameState.game.rules.gameplay.inventoryLimit}`;
-        updateInventory();
-        updateNews();
+        updateInventoryUI();
+        updateNewsUI();
         updateTradingUI();
         if (window.mapRenderer) mapRenderer.draw();
       }
 
-      function updateInventory() {
+      function updateInventoryUI() {
         const inventory = document.getElementById("inventory");
         const items = {};
         gameState.game.inventory.forEach((item) => {
@@ -464,7 +493,7 @@
                 .join("");
       }
 
-      function updateNews() {
+      function updateNewsUI() {
         const newsContainer = document.getElementById("news");
         const items = [];
         if (gameState.game.currentQuest) {
@@ -492,6 +521,7 @@
       }
 
       function updateTradingUI() {
+
         const items = document.getElementById("items");
         const currentLocation = gameState.getCurrentLocation();
         const headerEmoji = document.querySelector(".header-left > div");
@@ -500,7 +530,7 @@
         const questHint = document.getElementById("questHint");
         if (gameState.game.currentQuest) {
           const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
-          const canDeliver = canDeliverQuest();
+          const canDeliver = QuestLogic.updateNewsUI();
           const owned = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
           const needed = gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
           const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
@@ -573,7 +603,7 @@
             </button>
             <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
           </div>
-          <button class="btn btn-buy action-button" onclick="quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
+          <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
             Buy All (${maxBuy})
           </button>
         </div>
@@ -610,26 +640,9 @@
           MarketActions.sell(itemId, quantity);
         }
         updateUI();
-        updateTradingUI();
+        //updateTradingUI();
       }
 
-      function quickBuyAll(itemId) {
-        const max = MarketLogic.getMaxBuyQuantity(itemId);
-        if (max > 0) {
-          MarketActions.buy(itemId, max);
-          updateUI();
-          updateTradingUI();
-        }
-      }
-
-      function quickSellAll(itemId) {
-        const max = MarketLogic.getMaxSellQuantity(itemId);
-        if (max > 0) {
-          MarketActions.sell(itemId, max);
-          updateUI();
-          updateTradingUI();
-        }
-      }
 
       function endGame() {
         const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
@@ -773,21 +786,22 @@
       // === 6. EXPOSE FUNCTIONS & CLASSES TO HTML ===
       window.gameState = gameState;
       window.MapRenderer = MapRenderer;
+      window.MarketActions = MarketActions;
       window.GridSystem = GridSystem; // ✅ Required by MapRenderer and travel()
       window.init = init;
       window.updateUI = updateUI;
-      window.updateInventory = updateInventory;
-      window.updateNews = updateNews;
-      window.updateTradingUI = updateTradingUI;
+      window.updateInventoryUI = updateInventoryUI;
+      window.updateNewsUI = updateNewsUI;
+      //window.updateTradingUI = updateTradingUI;
       window.showMap = showMap;
       window.showTrading = showTrading;
       window.travel = travel;
       window.enterLocation = enterLocation;
-      window.deliverQuest = deliverQuest;
+      window.deliverQuest = QuestLogic.deliverQuest;
       window.executeTrade = executeTrade;
       window.changeQuantity = changeQuantity;
-      window.quickBuyAll = quickBuyAll;
-      window.quickSellAll = quickSellAll;
+      window.quickBuyAll = MarketActions.quickBuyAll;
+      window.quickSellAll = MarketActions.quickSellAll;
       window.endGame = endGame;
       window.resetGame = resetGame;
       window.generateLocations = generateLocations;
