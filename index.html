@@ -138,60 +138,57 @@
           if (!posA || !posB) return Infinity;
           return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
         }
+
+        static getTravelTime(fromIndex, toIndex) {
+          const path = this.findPath(fromIndex, toIndex);
+          if (path.length <= 1) return Infinity;
+
+          // Sum actual grid distance between each step
+          let totalDays = 0;
+          for (let i = 1; i < path.length; i++) {
+            totalDays += this.getGridDistance(path[i - 1], path[i]);
+          }
+          return totalDays;
+        }
+
         static findPath(fromIndex, toIndex) {
-          const start = this.findLocationPosition(fromIndex);
-          const goal = this.findLocationPosition(toIndex);
-          if (!start || !goal) return [];
-          const openSet = [{ x: start.x, y: start.y, g: 0, f: 0, parent: null }];
-          const closedSet = [];
-          const gridWidth = gameState.game.rules.grid.width;
-          const gridHeight = gameState.game.rules.grid.height;
+          if (fromIndex === toIndex) return [fromIndex];
+          const openSet = [{ location: fromIndex, g: 0, f: 0, parent: null }];
+          const closedSet = new Set();
           while (openSet.length > 0) {
-            let current = openSet[0];
-            let currentIndex = 0;
-            for (let i = 1; i < openSet.length; i++) {
-              if (openSet[i].f < current.f) {
-                current = openSet[i];
-                currentIndex = i;
-              }
-            }
-            openSet.splice(currentIndex, 1);
-            closedSet.push(current);
-            if (current.x === goal.x && current.y === goal.y) {
+            // Sort by f-score, pick lowest
+            openSet.sort((a, b) => a.f - b.f);
+            const current = openSet.shift();
+            if (current.location === toIndex) {
+              // Reconstruct path
               const path = [];
               let node = current;
               while (node) {
-                const locationIndex = gameState.game.locationGrid[node.y][node.x];
-                if (locationIndex !== null) {
-                  path.unshift(locationIndex);
-                }
+                path.unshift(node.location);
                 node = node.parent;
               }
               return path;
             }
-            const neighbors = [
-              { x: current.x - 1, y: current.y },
-              { x: current.x + 1, y: current.y },
-              { x: current.x, y: current.y - 1 },
-              { x: current.x, y: current.y + 1 },
-            ];
-            for (const neighbor of neighbors) {
-              if (neighbor.x < 0 || neighbor.x >= gridWidth || neighbor.y < 0 || neighbor.y >= gridHeight) continue;
-              if (closedSet.find((n) => n.x === neighbor.x && n.y === neighbor.y)) continue;
+            closedSet.add(current.location);
+            // Only consider real connections
+            const neighbors = gameState.game.connections[current.location];
+            for (const neighborIndex of neighbors) {
+              if (closedSet.has(neighborIndex)) continue;
               const g = current.g + 1;
-              const h = Math.abs(neighbor.x - goal.x) + Math.abs(neighbor.y - goal.y);
+              const h = GridSystem.getGridDistance(neighborIndex, toIndex);
               const f = g + h;
-              const existing = openSet.find((n) => n.x === neighbor.x && n.y === neighbor.y);
-              if (!existing) {
-                openSet.push({ x: neighbor.x, y: neighbor.y, g, h, f, parent: current });
-              } else if (g < existing.g) {
-                existing.g = g;
-                existing.f = g + existing.h;
-                existing.parent = current;
+              const existing = openSet.find((n) => n.location === neighborIndex);
+              if (!existing || g < existing.g) {
+                openSet.push({
+                  location: neighborIndex,
+                  g,
+                  f,
+                  parent: current,
+                });
               }
             }
           }
-          return [];
+          return []; // No path
         }
       }
 
@@ -421,14 +418,36 @@
 
       // === 6. GAME FUNCTIONS (ALL PRESERVED) ===
       function travel(locationIndex) {
-        const travelTime = GridSystem.getGridDistance(gameState.game.location, locationIndex);
-        if (gameState.game.day + travelTime > gameState.game.rules.gameplay.maxDays) return;
+        // Calculate total travel time based on actual grid distance along the path
+        const travelTime = GridSystem.getTravelTime(gameState.game.location, locationIndex);
+        if (travelTime === Infinity) return; // No valid path exists
+
+        const arrivalDay = gameState.game.day + travelTime;
+        const maxDay = gameState.game.rules.gameplay.maxDays;
+
+        if (arrivalDay > maxDay) {
+          // Can't reach this location in time
+          // Check if player is completely stuck
+          if (!canReachAnyLocation()) {
+            setTimeout(endGame, 600);
+          }
+          return;
+        }
+
+        // Perform the travel
         gameState.setLocation(locationIndex);
         gameState.updateDay(travelTime);
-        if (gameState.game.day > gameState.game.rules.gameplay.maxDays) endGame();
+
+        // Update economy
         MarketActions.updatePrices();
         MarketActions.updateStock();
         gameState.decaySaturation();
+
+        // Check if any further moves are possible
+        if (!canReachAnyLocation()) {
+          setTimeout(endGame, 600);
+        }
+
         updateUI();
       }
 
@@ -440,6 +459,13 @@
       function showMap() {
         document.getElementById("mapScreen").classList.remove("hidden");
         document.getElementById("tradingScreen").classList.add("hidden");
+
+        // After returning to map, check if any moves are possible
+        if (!canReachAnyLocation()) {
+          setTimeout(endGame, 600); // Gentle delay for closure
+        }
+
+        updateUI();
       }
 
       function showTrading() {
@@ -472,10 +498,10 @@
                 .map(([id, count]) => {
                   const item = gameState.getItem(id);
                   return `<div class="inventory-item">
-                    <span class="inventory-item-icon">${item.emoji}</span>
-                    <span class="inventory-item-text">${item.name}</span>
-                    <span class="inventory-item-count">x${count}</span>
-                </div>`;
+                                <span class="inventory-item-icon">${item.emoji}</span>
+                                <span class="inventory-item-text">${item.name}</span>
+                                <span class="inventory-item-count">x${count}</span>
+                            </div>`;
                 })
                 .join("");
       }
@@ -486,9 +512,9 @@
         if (gameState.game.currentQuest) {
           const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
           items.push(`<div class="quest-item">
-                    <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
-                    <div class="quest-progress">Progress: ${gameState.game.currentQuest.delivered}/${gameState.game.currentQuest.quantity} ${questItem.name} delivered | Reward: ${gameState.game.currentQuest.reward} gold </div>
-                </div>`);
+                                <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
+                                <div class="quest-progress">Progress: ${gameState.game.currentQuest.delivered}/${gameState.game.currentQuest.quantity} ${questItem.name} delivered | Reward: ${gameState.game.currentQuest.reward} gold </div>
+                            </div>`);
         }
         const current = gameState.getCurrentLocation();
         gameState.game.items.forEach((item) => {
@@ -496,8 +522,8 @@
           const multiplier = current.multipliers[item.category];
           if (multiplier < 0.9) {
             items.push(`<div class="news-item market-opportunity">
-                          ${item.emoji} Great ${item.name} prices here!
-                      </div>`);
+                                      ${item.emoji} Great ${item.name} prices here!
+                                  </div>`);
           }
         });
         const genericNews = gameState.game.gameData.genericNews;
@@ -522,17 +548,17 @@
           const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
           const buttonDisabled = !canDeliver;
           questHint.innerHTML = `
-    <div class="quest-banner">
-      <div class="quest-icon">📋</div>
-      <div class="quest-text">
-        <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
-        <div class="quest-progress">You have ${owned}, need ${needed}</div>
-      </div>
-      <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
-        ${buttonText}
-      </button>
-    </div>
-  `;
+                <div class="quest-banner">
+                  <div class="quest-icon">📋</div>
+                  <div class="quest-text">
+                    <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
+                    <div class="quest-progress">You have ${owned}, need ${needed}</div>
+                  </div>
+                  <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
+                    ${buttonText}
+                  </button>
+                </div>
+              `;
         } else {
           questHint.textContent = "No active quest";
         }
@@ -564,48 +590,48 @@
             if (stock === 0) rowClasses.push("no-stock");
             const displayPrice = stock === 0 ? "--" : `${price}g${avgPurchasePrice !== null ? ` (${avgPurchasePrice}g avg)` : ""}`;
             return `
-      <div class="${rowClasses.join(" ")}">
-        <div class="item-visual">
-          <div class="item-icon">${item.emoji}</div>
-          <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
-        </div>
-        <div class="item-info">
-          <div class="item-header">
-            ${item.name}<span class="item-price">${displayPrice}</span>
-          </div>
-          <div class="item-meta">Available: ${stock} | You own: <span class="owned-count">${owned}</span>
-            ${gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id ? "<br>Perfect for your quest!" : ""}
-            ${stock <= 2 && stock > 0 ? "<br>Limited stock - act fast!" : ""}
-            ${dealQuality === "poor" ? "<br>Overpriced here - try elsewhere" : ""}
-            ${dealQuality === "great" ? "<br>Excellent value!" : ""}
-            ${dealQuality === "fair" ? "<br>Standard market price" : ""}
-          </div>
-        </div>
-        <div class="buy-controls">
-          <div class="quantity-action-row">
-            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
-            <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
-              BUY <span id="buy-${item.id}">1</span>
-            </button>
-            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
-          </div>
-          <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
-            Buy All (${maxBuy})
-          </button>
-        </div>
-        <div class="sell-controls">
-          <div class="quantity-action-row">
-            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
-            <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
-              SELL <span id="sell-${item.id}">1</span>
-            </button>
-            <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
-          </div>
-          <button class="btn btn-sell action-button" onclick="quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
-            Sell All (${maxSell})
-          </button>
-        </div>
-      </div>`;
+                  <div class="${rowClasses.join(" ")}">
+                    <div class="item-visual">
+                      <div class="item-icon">${item.emoji}</div>
+                      <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
+                    </div>
+                    <div class="item-info">
+                      <div class="item-header">
+                        ${item.name}<span class="item-price">${displayPrice}</span>
+                      </div>
+                      <div class="item-meta">Available: ${stock} | You own: <span class="owned-count">${owned}</span>
+                        ${gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id ? "<br>Perfect for your quest!" : ""}
+                        ${stock <= 2 && stock > 0 ? "<br>Limited stock - act fast!" : ""}
+                        ${dealQuality === "poor" ? "<br>Overpriced here - try elsewhere" : ""}
+                        ${dealQuality === "great" ? "<br>Excellent value!" : ""}
+                        ${dealQuality === "fair" ? "<br>Standard market price" : ""}
+                      </div>
+                    </div>
+                    <div class="buy-controls">
+                      <div class="quantity-action-row">
+                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
+                        <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
+                          BUY <span id="buy-${item.id}">1</span>
+                        </button>
+                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
+                      </div>
+                      <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
+                        Buy All (${maxBuy})
+                      </button>
+                    </div>
+                    <div class="sell-controls">
+                      <div class="quantity-action-row">
+                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
+                        <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
+                          SELL <span id="sell-${item.id}">1</span>
+                        </button>
+                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
+                      </div>
+                      <button class="btn btn-sell action-button" onclick="quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
+                        Sell All (${maxSell})
+                      </button>
+                    </div>
+                  </div>`;
           })
           .join("");
       }
@@ -628,15 +654,60 @@
         updateUI();
       }
 
+      function canReachAnyLocation() {
+        const currentDay = gameState.game.day;
+        const maxDay = gameState.game.rules.gameplay.maxDays;
+        const currentLocation = gameState.game.location;
+
+        for (let i = 0; i < gameState.game.locations.length; i++) {
+          if (i === currentLocation) continue;
+          const travelTime = GridSystem.getTravelTime(currentLocation, i);
+          if (travelTime === Infinity) continue;
+          if (currentDay + travelTime <= maxDay) return true;
+        }
+        return false;
+      }
+
+      function checkGameEnd() {
+        if (!canReachAnyLocation()) {
+          setTimeout(endGame, 600);
+        }
+      }
+
+      // === Update travel() to call checkGameEnd ===
+      // (Already updated in your codebase — just ensure it's called at the end)
+
       function endGame() {
         const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
         document.getElementById("profit").textContent = profit;
-        document.getElementById("gameOver").style.display = "flex";
+
+        const gameOverEl = document.getElementById("gameOver");
+        const canMove = canReachAnyLocation();
+        const daysLeft = gameState.game.rules.gameplay.maxDays - gameState.game.day;
+
+        let reason;
+        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays) {
+          reason = "The season has ended. The roads grow quiet until next year.";
+        } else if (!canMove) {
+          reason = "No further journeys are possible. Your travels come to rest.";
+        } else {
+          reason = "Your trading season ends in quiet reflection.";
+        }
+
+        gameOverEl.innerHTML = `
+    <div>
+      <h2>Season Complete!</h2>
+      <div>${reason}</div>
+      <div>Final Profit: <span id="profit">${profit}</span> gold</div>
+      <button class="btn btn-primary" onclick="resetGame()">Begin New Season</button>
+    </div>
+  `;
+        gameOverEl.style.display = "flex";
       }
 
       function resetGame() {
         gameState.reset();
-        generateLocations();
+        gameState.generateLocations();
         const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
         gameState.setQuest(initialQuest);
         MarketActions.updatePrices();
@@ -644,83 +715,6 @@
         document.getElementById("gameOver").style.display = "none";
         showMap();
         updateUI();
-      }
-
-      function generateLocations() {
-        let seedRng = gameState.game.seed;
-        function seededRandom() {
-          seedRng = (seedRng * 9301 + 49297) % 233280;
-          return seedRng / 233280;
-        }
-        const gridWidth = gameState.game.rules.grid.width;
-        const gridHeight = gameState.game.rules.grid.height;
-        const centerX = Math.floor(gridWidth / 2);
-        const centerY = Math.floor(gridHeight / 2);
-        gameState.game.locationGrid = Array(gridHeight)
-          .fill()
-          .map(() => Array(gridWidth).fill(null));
-        const min = gameState.game.rules.worldGeneration.minLocations;
-        const max = gameState.game.rules.worldGeneration.maxLocations;
-        const locationCount = Math.floor(seededRandom() * (max - min + 1)) + min;
-        const templates = gameState.game.gameData.locationTemplates;
-        gameState.game.locations = [{ ...templates[0] }];
-        gameState.game.locationGrid[centerY][centerX] = 0;
-        const shuffled = templates.slice(1).sort(() => seededRandom() - 0.5);
-        const selectedTemplates = shuffled.slice(0, locationCount - 1);
-        selectedTemplates.forEach((template, index) => {
-          const locationIndex = index + 1;
-          const location = { ...template };
-          let minDist, maxDist;
-          switch (template.distanceTier) {
-            case 1:
-              minDist = 1;
-              maxDist = 2;
-              break;
-            case 2:
-              minDist = 3;
-              maxDist = 4;
-              break;
-            case 3:
-              minDist = 5;
-              maxDist = 7;
-              break;
-            case 4:
-              minDist = 8;
-              maxDist = 10;
-              break;
-            default:
-              minDist = 2;
-              maxDist = 4;
-              break;
-          }
-          const validPositions = [];
-          for (let y = 0; y < gridHeight; y++) {
-            for (let x = 0; x < gridWidth; x++) {
-              if (gameState.game.locationGrid[y][x] === null) {
-                const dist = Math.abs(x - centerX) + Math.abs(y - centerY);
-                if (dist >= minDist && dist <= maxDist) {
-                  validPositions.push({ x, y });
-                }
-              }
-            }
-          }
-          if (validPositions.length > 0) {
-            const pos = validPositions[Math.floor(seededRandom() * validPositions.length)];
-            gameState.game.locationGrid[pos.y][pos.x] = locationIndex;
-            gameState.game.locations.push(location);
-          } else {
-            for (let y = 0; y < gridHeight; y++) {
-              for (let x = 0; x < gridWidth; x++) {
-                if (gameState.game.locationGrid[y][x] === null) {
-                  gameState.game.locationGrid[y][x] = locationIndex;
-                  gameState.game.locations.push(location);
-                  break;
-                }
-              }
-              if (gameState.game.locations.length > locationIndex) break;
-            }
-          }
-        });
       }
 
       async function loadGameData() {
@@ -737,11 +731,12 @@
         }
       }
 
-      function fixMapRenderer(ms = 30) {
+      function fixMapRenderer(ms = 250) {
         setTimeout(() => {
           window.dispatchEvent(new Event("resize"));
           console.log("🎨 MapRenderer: Canvas size fixed with " + ms + " delay");
         }, ms);
+        // document.querySelector('.game-container').classList.add('show');
       }
 
       async function init() {
@@ -749,7 +744,7 @@
           const dataLoaded = await loadGameData();
           if (!dataLoaded) throw new Error("Failed to load game data");
           gameState.setGold(gameState.game.rules.gameplay.startingGold);
-          generateLocations();
+          gameState.generateLocations();
           const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
           gameState.setQuest(initialQuest);
           MarketActions.updatePrices();
@@ -759,6 +754,12 @@
           console.log("✅ Game data loaded:", gameState.game.rules);
           console.log("✅ Locations generated:", gameState.game.locations);
           console.log("✅ Canvas exists:", !!document.getElementById("canvas"));
+
+          console.log(
+            "📍 Locations:",
+            gameState.game.locations.map((l) => l.name)
+          );
+          console.log("🔗 Connections:", gameState.game.connections);
 
           window.mapRenderer = new MapRenderer(document.getElementById("canvas"));
           updateUI();
@@ -776,7 +777,7 @@
       window.updateUI = updateUI;
       window.updateInventoryUI = updateInventoryUI;
       window.updateNewsUI = updateNewsUI;
-      //window.updateTradingUI = updateTradingUI;
+      window.updateTradingUI = updateTradingUI;
       window.showMap = showMap;
       window.showTrading = showTrading;
       window.travel = travel;
@@ -788,11 +789,11 @@
       window.quickSellAll = MarketActions.quickSellAll;
       window.endGame = endGame;
       window.resetGame = resetGame;
-      window.generateLocations = generateLocations;
+      window.generateLocations = gameState.generateLocations;
 
       // === 7. START GAME IMMEDIATELY ===
       await init(); // No need to delay game logic
-      fixMapRenderer(20);
+      fixMapRenderer();
     </script>
   </body>
 </html>
