@@ -2,7 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0" /> -->
+    <!-- <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"> -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Fleeting Fortune</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
@@ -27,7 +29,9 @@
       <!-- Map Screen -->
       <div id="mapScreen" class="screen">
         <div id="mapArea">
-          <canvas id="canvas"></canvas>
+          <div class="canvas-container">
+            <canvas id="canvas"></canvas>
+          </div>
         </div>
         <div class="panels">
           <div class="panel news-panel">
@@ -87,6 +91,7 @@
       // === 1. IMPORT EXTERNAL CLASSES ===
       import { GameState } from "./src/classes/GameState.js";
       import { MapRenderer } from "./src/classes/MapRenderer.js";
+      import { TradingScreen } from "./src/classes/TradingScreen.js";
 
       // === 2. GAME STATE OBJECT ===
       const game = {
@@ -111,6 +116,7 @@
 
       // === 3. CREATE GAMESTATE INSTANCE ===
       const gameState = new GameState(game);
+      const tradingScreen = new TradingScreen(gameState, document.getElementById("tradingScreen"));
 
       // Grid system utilities
       class GridSystem {
@@ -418,37 +424,35 @@
 
       // === 6. GAME FUNCTIONS (ALL PRESERVED) ===
       function travel(locationIndex) {
-        // Calculate total travel time based on actual grid distance along the path
         const travelTime = GridSystem.getTravelTime(gameState.game.location, locationIndex);
-        if (travelTime === Infinity) return; // No valid path exists
+        if (travelTime === Infinity) return;
 
         const arrivalDay = gameState.game.day + travelTime;
         const maxDay = gameState.game.rules.gameplay.maxDays;
 
+        // ❌ Old: if (arrivalDay > maxDay) return;
+        // ✅ New: Allow final arrival, but don't let player keep traveling
         if (arrivalDay > maxDay) {
-          // Can't reach this location in time
-          // Check if player is completely stuck
-          if (!canReachAnyLocation()) {
-            setTimeout(endGame, 600);
+          // Still allow entering the location (no travel)
+          if (locationIndex === gameState.game.location) {
+            enterLocation(locationIndex);
           }
+          // But don't allow actual travel
           return;
         }
 
-        // Perform the travel
+        // Otherwise, perform travel
         gameState.setLocation(locationIndex);
         gameState.updateDay(travelTime);
-
-        // Update economy
         MarketActions.updatePrices();
         MarketActions.updateStock();
         gameState.decaySaturation();
 
-        // Check if any further moves are possible
-        if (!canReachAnyLocation()) {
-          setTimeout(endGame, 600);
-        }
-
         updateUI();
+        // After updating UI, check if season is over OR no moves possible
+        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
+          endGame();
+        }
       }
 
       function enterLocation(locationIndex) {
@@ -461,17 +465,17 @@
         document.getElementById("tradingScreen").classList.add("hidden");
 
         // After returning to map, check if any moves are possible
-        if (!canReachAnyLocation()) {
-          setTimeout(endGame, 600); // Gentle delay for closure
+        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
+          setTimeout(endGame, 600);
         }
-
         updateUI();
       }
 
       function showTrading() {
-        document.getElementById("mapScreen").classList.add("hidden");
-        document.getElementById("tradingScreen").classList.remove("hidden");
-        updateUI();
+        //document.getElementById("mapScreen").classList.add("hidden");
+        //document.getElementById("tradingScreen").classList.remove("hidden");
+        //updateUI();
+        tradingScreen.show();
       }
 
       function updateUI() {
@@ -482,6 +486,9 @@
         updateInventoryUI();
         updateNewsUI();
         updateTradingUI();
+        if (!document.getElementById("tradingScreen").classList.contains("hidden")) {
+          tradingScreen.render();
+        }
         if (window.mapRenderer) mapRenderer.draw();
       }
 
@@ -491,17 +498,18 @@
         gameState.game.inventory.forEach((item) => {
           items[item.id] = (items[item.id] || 0) + 1;
         });
+
         inventory.innerHTML =
           Object.keys(items).length === 0
             ? "<div>Empty</div>"
             : Object.entries(items)
-                .map(([id, count]) => {
+                .map(([id, count], index) => {
                   const item = gameState.getItem(id);
                   return `<div class="inventory-item">
-                                <span class="inventory-item-icon">${item.emoji}</span>
-                                <span class="inventory-item-text">${item.name}</span>
-                                <span class="inventory-item-count">x${count}</span>
-                            </div>`;
+                          <span class="inventory-item-icon" style="--index: ${index};">${item.emoji}</span>
+                          <span class="inventory-item-text">${item.name}</span>
+                          <span class="inventory-item-count">x${count}</span>
+                      </div>`;
                 })
                 .join("");
       }
@@ -533,35 +541,76 @@
         newsContainer.innerHTML = items.slice(0, 6).join("");
       }
 
+
+      
       function updateTradingUI() {
         const items = document.getElementById("items");
+        const questHint = document.getElementById("questHint");
         const currentLocation = gameState.getCurrentLocation();
         const headerEmoji = document.querySelector(".header-left > div");
+        const maxDay = gameState.game.rules.gameplay.maxDays;
+        const isSeasonOver = gameState.game.day >= maxDay;
+        const canTravel = canReachAnyLocation();
+        const isGameOver = isSeasonOver || !canTravel; // ✅ New: Check both conditions
+        const canBuyItems = canTravel && !isSeasonOver; // Can only buy if you can travel AND season isn't over
+
+        // Update header
         headerEmoji.textContent = currentLocation.emoji;
         document.querySelector(".location-subtitle").textContent = currentLocation.flavorText;
-        const questHint = document.getElementById("questHint");
-        if (gameState.game.currentQuest) {
+
+        // === DYNAMIC BANNER LOGIC ===
+        if (isGameOver) {
+          // ✅ Use isGameOver instead of isSeasonOver
+          //if (isSeasonOver) {
+          // 🍂 Season is over — show closure and restart
+          questHint.innerHTML = `
+      <div class="quest-banner">
+        <div class="quest-icon">🍂</div>
+        <div class="quest-text">
+          <div class="quest-title">Season Complete</div>
+          <div class="quest-progress">No more journeys this season. Sell your goods and begin anew.</div>
+        </div>
+        <button class="btn btn-quest" onclick="resetGame()">
+          Begin New Season
+        </button>
+      </div>
+    `;
+          //}
+        } else if (gameState.game.currentQuest) {
+          // 📋 Active quest — show delivery option
           const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
           const canDeliver = QuestLogic.updateNewsUI();
           const owned = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
           const needed = gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
           const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
           const buttonDisabled = !canDeliver;
+
           questHint.innerHTML = `
-                <div class="quest-banner">
-                  <div class="quest-icon">📋</div>
-                  <div class="quest-text">
-                    <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
-                    <div class="quest-progress">You have ${owned}, need ${needed}</div>
-                  </div>
-                  <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
-                    ${buttonText}
-                  </button>
-                </div>
-              `;
+      <div class="quest-banner">
+        <div class="quest-icon">📋</div>
+        <div class="quest-text">
+          <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
+          <div class="quest-progress">You have ${owned}, need ${needed}</div>
+        </div>
+        <button class="btn btn-quest" onclick="deliverQuest()" ${buttonDisabled ? "disabled" : ""}>
+          ${buttonText}
+        </button>
+      </div>
+    `;
         } else {
-          questHint.textContent = "No active quest";
+          // ❓ No quest — show market insight
+          questHint.innerHTML = `
+      <div class="quest-banner">
+        <div class="quest-icon">💡</div>
+        <div class="quest-text">
+          <div class="quest-title">No Active Quest</div>
+          <div class="quest-progress">Keep trading — a new quest will appear soon.</div>
+        </div>
+      </div>
+    `;
         }
+
+        // === MARKET INSIGHT ===
         const insightText = document.getElementById("insightText");
         const goodDeals = gameState.game.items.filter((item) => {
           const multiplier = currentLocation.multipliers[item.category] || 1.0;
@@ -573,12 +622,15 @@
         } else {
           insightText.textContent = "Standard market prices";
         }
+
+        // === ITEM GRID ===
         items.innerHTML = gameState.game.items
           .map((item) => {
             const price = MarketLogic.getPrice(item.id, gameState.game.location);
             const stock = gameState.getStock(item.id);
             const owned = gameState.getInventoryCount(item.id);
-            const maxBuy = MarketLogic.getMaxBuyQuantity(item.id);
+            //const maxBuy = canBuyItems ? MarketLogic.getMaxBuyQuantity(item.id) : 0;
+            const maxBuy = isGameOver ? 0 : MarketLogic.getMaxBuyQuantity(item.id);
             const maxSell = MarketLogic.getMaxSellQuantity(item.id);
             const dealQuality = MarketLogic.getDealQuality(item.id);
             const avgPurchasePrice = gameState.getAveragePurchasePrice(item.id);
@@ -588,53 +640,57 @@
             if (dealQuality === "great" || dealQuality === "good") rowClasses.push("good-deal");
             else if (dealQuality === "poor") rowClasses.push("bad-deal");
             if (stock === 0) rowClasses.push("no-stock");
+
             const displayPrice = stock === 0 ? "--" : `${price}g${avgPurchasePrice !== null ? ` (${avgPurchasePrice}g avg)` : ""}`;
+
             return `
-                  <div class="${rowClasses.join(" ")}">
-                    <div class="item-visual">
-                      <div class="item-icon">${item.emoji}</div>
-                      <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
-                    </div>
-                    <div class="item-info">
-                      <div class="item-header">
-                        ${item.name}<span class="item-price">${displayPrice}</span>
-                      </div>
-                      <div class="item-meta">Available: ${stock} | You own: <span class="owned-count">${owned}</span>
-                        ${gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id ? "<br>Perfect for your quest!" : ""}
-                        ${stock <= 2 && stock > 0 ? "<br>Limited stock - act fast!" : ""}
-                        ${dealQuality === "poor" ? "<br>Overpriced here - try elsewhere" : ""}
-                        ${dealQuality === "great" ? "<br>Excellent value!" : ""}
-                        ${dealQuality === "fair" ? "<br>Standard market price" : ""}
-                      </div>
-                    </div>
-                    <div class="buy-controls">
-                      <div class="quantity-action-row">
-                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
-                        <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
-                          BUY <span id="buy-${item.id}">1</span>
-                        </button>
-                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
-                      </div>
-                      <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
-                        Buy All (${maxBuy})
-                      </button>
-                    </div>
-                    <div class="sell-controls">
-                      <div class="quantity-action-row">
-                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
-                        <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
-                          SELL <span id="sell-${item.id}">1</span>
-                        </button>
-                        <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
-                      </div>
-                      <button class="btn btn-sell action-button" onclick="quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
-                        Sell All (${maxSell})
-                      </button>
-                    </div>
-                  </div>`;
+        <div class="${rowClasses.join(" ")}">
+          <div class="item-visual">
+            <div class="item-icon">${item.emoji}</div>
+            <div class="deal-indicator ${dealClasses[dealQuality]}">${dealText[dealQuality]}</div>
+          </div>
+          <div class="item-info">
+            <div class="item-header">
+              ${item.name}<span class="item-price">${displayPrice}</span>
+            </div>
+            <div class="item-meta">Available: ${stock} | You own: <span class="owned-count">${owned}</span>
+              ${gameState.game.currentQuest && gameState.game.currentQuest.itemId === item.id ? "<br>Perfect for your quest!" : ""}
+              ${stock <= 2 && stock > 0 ? "<br>Limited stock - act fast!" : ""}
+              ${dealQuality === "poor" ? "<br>Overpriced here - try elsewhere" : ""}
+              ${dealQuality === "great" ? "<br>Excellent value!" : ""}
+              ${dealQuality === "fair" ? "<br>Standard market price" : ""}
+            </div>
+          </div>
+          <div class="buy-controls">
+            <div class="quantity-action-row">
+              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
+              <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
+                BUY <span id="buy-${item.id}">1</span>
+              </button>
+              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
+            </div>
+            <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
+              Buy All (${maxBuy})
+            </button>
+          </div>
+          <div class="sell-controls">
+            <div class="quantity-action-row">
+              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
+              <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
+                SELL <span id="sell-${item.id}">1</span>
+              </button>
+              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
+            </div>
+            <button class="btn btn-sell action-button" onclick="MarketActions.quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
+              Sell All (${maxSell})
+            </button>
+          </div>
+        </div>`;
           })
           .join("");
       }
+
+
 
       function changeQuantity(itemId, type, delta) {
         const element = document.getElementById(`${type}-${itemId}`);
@@ -679,40 +735,63 @@
 
       function endGame() {
         const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
-        document.getElementById("profit").textContent = profit;
+        const reason = "The season has ended. The roads grow quiet until next year.";
 
-        const gameOverEl = document.getElementById("gameOver");
-        const canMove = canReachAnyLocation();
-        const daysLeft = gameState.game.rules.gameplay.maxDays - gameState.game.day;
+        // Update the quest banner to show season over + restart button
+        const questHint = document.getElementById("questHint");
+        questHint.innerHTML = `
+          <div class="quest-banner">
+            <div class="quest-icon">🍂</div>
+            <div class="quest-text">
+              <div class="quest-title">Season Complete!</div>
+              <div class="quest-progress">${reason}</div>
+            </div>
+            <button class="btn btn-quest" onclick="resetGame()">
+              Begin New Season
+            </button>
+          </div>
+        `;
 
-        let reason;
-        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays) {
-          reason = "The season has ended. The roads grow quiet until next year.";
-        } else if (!canMove) {
-          reason = "No further journeys are possible. Your travels come to rest.";
-        } else {
-          reason = "Your trading season ends in quiet reflection.";
-        }
-
-        gameOverEl.innerHTML = `
-    <div>
-      <h2>Season Complete!</h2>
-      <div>${reason}</div>
-      <div>Final Profit: <span id="profit">${profit}</span> gold</div>
-      <button class="btn btn-primary" onclick="resetGame()">Begin New Season</button>
-    </div>
-  `;
-        gameOverEl.style.display = "flex";
+        // Optional: Show a subtle overlay (keep it cozy)
+        // const gameOverEl = document.getElementById("gameOver");
+        //gameOverEl.innerHTML = `
+        //  <div>
+        //    <h2>Season Complete!</h2>
+        //    <div>Final Profit: <span id="profit">${profit}</span> gold</div>
+        //  </div>
+        //`;
+        //gameOverEl.style.display = "flex";
       }
 
       function resetGame() {
+        // Reset game state
         gameState.reset();
+
+        // Clear old location positions (force re-layout)
+        gameState.game.locations.forEach((loc) => {
+          delete loc.x;
+          delete loc.y;
+        });
+
+        // Regenerate world
         gameState.generateLocations();
+
+        // Set up economy and quests
         const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
         gameState.setQuest(initialQuest);
         MarketActions.updatePrices();
         MarketActions.updateStock();
+
+        // Hide game over
         document.getElementById("gameOver").style.display = "none";
+
+        // Re-initialize map layout and draw
+        if (window.mapRenderer) {
+          mapRenderer.positionLocations(); // ← Critical: recompute positions
+          mapRenderer.draw(); // ← Draw with new layout
+        }
+
+        // Show map and update UI
         showMap();
         updateUI();
       }

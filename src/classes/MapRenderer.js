@@ -185,52 +185,52 @@ export class MapRenderer {
   }
 
   drawPathTo(targetIndex) {
-  const path = GridSystem.findPath(gameState.game.location, targetIndex);
-  if (path.length <= 1) return;
+    const path = GridSystem.findPath(gameState.game.location, targetIndex);
+    if (path.length <= 1) return;
 
-  // Calculate total travel days using grid distance
-  let totalDays = 0;
-  for (let i = 1; i < path.length; i++) {
-    totalDays += GridSystem.getGridDistance(path[i - 1], path[i]);
+    // Calculate total travel days using grid distance
+    let totalDays = 0;
+    for (let i = 1; i < path.length; i++) {
+      totalDays += GridSystem.getGridDistance(path[i - 1], path[i]);
+    }
+
+    // Draw the path
+    this.ctx.save();
+    this.ctx.strokeStyle = "rgba(212, 175, 55, 0.6)";
+    this.ctx.lineWidth = 3;
+    this.ctx.setLineDash([5, 10]);
+    this.ctx.lineCap = "round";
+
+    this.ctx.beginPath();
+    const startLoc = gameState.game.locations[path[0]];
+    this.ctx.moveTo(startLoc.x, startLoc.y);
+    for (let i = 1; i < path.length; i++) {
+      const loc = gameState.game.locations[path[i]];
+      this.ctx.lineTo(loc.x, loc.y);
+    }
+    this.ctx.stroke();
+
+    // Add sun icons (☀️) for each *day* of travel, spaced along the path
+    const steps = Math.max(1, totalDays);
+    for (let step = 1; step <= steps; step++) {
+      const t = step / steps;
+      const pointIndex = Math.floor(t * (path.length - 1));
+      const prevIndex = Math.max(0, pointIndex - 1);
+      const loc = gameState.game.locations[path[pointIndex]];
+      const prev = gameState.game.locations[path[prevIndex]];
+      const x = prev.x + (loc.x - prev.x) * (t * (path.length - 1) - prevIndex);
+      const y = prev.y + (loc.y - prev.y) * (t * (path.length - 1) - prevIndex);
+
+      this.ctx.font = "8px Arial";
+      this.ctx.fillText("☀️", x - 8, y - 20);
+    }
+
+    this.ctx.restore();
+
+    // Show tooltip with total days
+    const loc = gameState.game.locations[targetIndex];
+    this.drawTooltip(loc.x + 50, loc.y, `${totalDays} days 🗺️`);
   }
-
-  // Draw the path
-  this.ctx.save();
-  this.ctx.strokeStyle = "rgba(212, 175, 55, 0.6)";
-  this.ctx.lineWidth = 3;
-  this.ctx.setLineDash([5, 10]);
-  this.ctx.lineCap = "round";
-
-  this.ctx.beginPath();
-  const startLoc = gameState.game.locations[path[0]];
-  this.ctx.moveTo(startLoc.x, startLoc.y);
-  for (let i = 1; i < path.length; i++) {
-    const loc = gameState.game.locations[path[i]];
-    this.ctx.lineTo(loc.x, loc.y);
-  }
-  this.ctx.stroke();
-
-  // Add sun icons (☀️) for each *day* of travel, spaced along the path
-  const steps = Math.max(1, totalDays);
-  for (let step = 1; step <= steps; step++) {
-    const t = step / steps;
-    const pointIndex = Math.floor(t * (path.length - 1));
-    const prevIndex = Math.max(0, pointIndex - 1);
-    const loc = gameState.game.locations[path[pointIndex]];
-    const prev = gameState.game.locations[path[prevIndex]];
-    const x = prev.x + (loc.x - prev.x) * (t * (path.length - 1) - prevIndex);
-    const y = prev.y + (loc.y - prev.y) * (t * (path.length - 1) - prevIndex);
-
-    this.ctx.font = "16px Arial";
-    this.ctx.fillText("☀️", x - 8, y - 20);
-  }
-
-  this.ctx.restore();
-
-  // Show tooltip with total days
-  const loc = gameState.game.locations[targetIndex];
-  this.drawTooltip(loc.x + 50, loc.y, `${totalDays} days 🗺️`);
-}
 
   drawTooltip(x, y, text) {
     const padding = 8;
@@ -251,21 +251,37 @@ export class MapRenderer {
     this.ctx.fillText(text, x + width / 2, y - height + fontSize / 2);
   }
 
-  handleClick(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    gameState.game.locations.forEach((location, i) => {
-      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-      if (dist <= 40) {
-        if (i !== gameState.game.location) {
-          travel(i);
-        } else {
-          enterLocation(i);
-        }
+handleClick(e) {
+  const rect = this.canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  gameState.game.locations.forEach((location, i) => {
+    const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+    if (dist <= 40) {
+      // ✅ Create ripple at location.x, location.y
+      const ripple = document.createElement("div");
+      ripple.classList.add("ripple");
+      ripple.style.left = `${location.x}px`;
+      ripple.style.top = `${location.y}px`;
+      ripple.style.transform = "translate(-50%, -50%)"; // Center on point
+
+      // ✅ Append to .canvas-container, not canvas.parentElement
+      const container = this.canvas.closest(".canvas-container");
+      container.appendChild(ripple);
+
+      // Remove after animation
+      setTimeout(() => ripple.remove(), 1500);
+
+      // Travel logic
+      if (i !== gameState.game.location) {
+        travel(i);
+      } else {
+        enterLocation(i);
       }
-    });
-  }
+    }
+  });
+}
 
   handleMouseMove_old(e) {
     const rect = this.canvas.getBoundingClientRect();
@@ -298,54 +314,42 @@ export class MapRenderer {
     }
   }
 
+  handleMouseMove(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    let hoverLocation = null;
 
+    gameState.game.locations.forEach((location, i) => {
+      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+      if (dist <= 40 && i !== gameState.game.location) {
+        hoverLocation = i;
+      }
+    });
 
+    if (hoverLocation !== null) {
+      const travelTime = GridSystem.getTravelTime(gameState.game.location, hoverLocation);
+      const maxDay = gameState.game.rules.gameplay.maxDays;
+      const arrivalDay = gameState.game.day + travelTime;
 
-handleMouseMove(e) {
-  const rect = this.canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
-  let hoverLocation = null;
+      if (travelTime === Infinity) {
+        this.canvas.style.cursor = "not-allowed";
+        this.canvas.title = "No path to this location";
+      } else if (arrivalDay > maxDay) {
+        this.canvas.style.cursor = "not-allowed";
+        this.canvas.title = `Trip takes ${travelTime} days, but only ${maxDay - gameState.game.day} days left`;
+      } else {
+        this.canvas.style.cursor = "pointer";
+        this.canvas.title = "";
+      }
 
-  gameState.game.locations.forEach((location, i) => {
-    const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-    if (dist <= 40 && i !== gameState.game.location) {
-      hoverLocation = i;
-    }
-  });
-
-  if (hoverLocation !== null) {
-    const travelTime = GridSystem.getTravelTime(gameState.game.location, hoverLocation);
-    const maxDay = gameState.game.rules.gameplay.maxDays;
-    const arrivalDay = gameState.game.day + travelTime;
-
-    if (travelTime === Infinity) {
-      this.canvas.style.cursor = "not-allowed";
-      this.canvas.title = "No path to this location";
-    } else if (arrivalDay > maxDay) {
-      this.canvas.style.cursor = "not-allowed";
-      this.canvas.title = `Trip takes ${travelTime} days, but only ${maxDay - gameState.game.day} days left`;
-    } else {
-      this.canvas.style.cursor = "pointer";
+      this.hoverLocation = hoverLocation;
+      this.draw(); // Redraw with path and tooltip
+    } else if (this.hoverLocation !== null) {
+      this.hoverLocation = null;
+      this.canvas.style.cursor = "default";
       this.canvas.title = "";
+      this.draw();
     }
-
-    this.hoverLocation = hoverLocation;
-    this.draw(); // Redraw with path and tooltip
-  } else if (this.hoverLocation !== null) {
-    this.hoverLocation = null;
-    this.canvas.style.cursor = "default";
-    this.canvas.title = "";
-    this.draw();
   }
-}
-
-
-
-
-
-
-
-
-
 }

@@ -13,9 +13,9 @@ body {
     color: var(--theme-text-primary);
     overflow: hidden;
     font-size: 10px;
-    /* -webkit-font-smoothing: antialiased;
+    -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    text-rendering: geometricPrecision; */
+    text-rendering: geometricPrecision;
 }
 
 /* === 🧱 CSS VARIABLES: HIGH FANTASY MEDIEVAL THEME === */
@@ -79,8 +79,8 @@ body {
 /* === 🏗️ BASE LAYOUT === */
 .game-container {
     width: 100%;
-    height: calc(100vh - calc(var(--game-padding) * 2));
-    /* height: calc(100dvh - calc(var(--game-padding) * 2)); */
+    /* height: calc(100vh - calc(var(--game-padding) * 2)); */
+    height: calc(100dvh - calc(var(--game-padding) * 2));
     /* height: 100%; */
     border: var(--border-width) solid var(--theme-border-accent);
     border-radius: var(--border-radius);
@@ -531,7 +531,7 @@ canvas {
 }
 
 .btn-buy {
-    background: var(--theme-border-accent);
+    background: var(--color-emerald);
     color: var(--theme-bg-primary);
 }
 
@@ -591,16 +591,26 @@ canvas {
 
 /* === GAME OVER SCREEN === */
 .game-over {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: var(--theme-text-bg-alpha);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--theme-text-bg-alpha);
+  padding: 16px;
+  border-radius: var(--border-radius);
+  border: 1px solid var(--theme-border-accent);
+  color: var(--theme-text-primary);
+  text-align: center;
+  z-index: 10;
+  max-width: 300px;
+  width: 90%;
+  display: none;
+}
+.game-over > div {
+  pointer-events: none;
+}
+.game-over button {
+  pointer-events: auto;
 }
 
 /* === QUEST BANNER === */
@@ -708,8 +718,77 @@ canvas {
     flex: 1; /* Let it grow on mobile */
 }
 
+
 @media (max-height: 700px) {
+    .header {
+        padding: 8px 16px;
+        height: 50px;
+    }
+    .header-stats {
+        font-size: 0.6rem;
+    }
+    .location-name {
+        font-size: 1.1rem;
+    }
     #mapArea {
         height: 50%;
     }
+    .panels {
+        height: 50%;
+    }
+    .news-panel, .inventory-panel {
+        padding: 8px;
+    }
+}
+
+
+
+
+/* === 🌀 ANIMATIONS: Inventory Emoji Sway (Fixed) === */
+@keyframes sway {
+  0% { transform: rotate(-4deg); }
+  50% { transform: rotate(8deg); }
+  100% { transform: rotate(-4deg); }
+}
+
+.inventory-item-icon {
+  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  /* Critical: Rotate around center */
+  transform-origin: center;
+  /* Apply animation with delay */
+  animation: sway 3s ease-in-out infinite;
+  animation: sway 3.5s ease-in-out infinite;
+  animation: sway 3.5s cubic-bezier(0.25, 0.1, 0.25, 1) infinite;
+  animation-delay: calc(var(--index) * 0.5s);
+  /* Ensure animation plays even if page is "frozen" */
+  animation-play-state: running;
+}
+
+
+.ripple {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--theme-border-accent);
+  border-radius: 50%;
+  opacity: 0.7;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: ripple-animation 1.0s ease-out forwards;
+}
+
+@keyframes ripple-animation {
+  0% { transform: translate(-50%, -50%) scale(1); opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(6); opacity: 0; }
+}
+
+.canvas-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
 }
