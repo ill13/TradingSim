@@ -251,37 +251,37 @@ export class MapRenderer {
     this.ctx.fillText(text, x + width / 2, y - height + fontSize / 2);
   }
 
-handleClick(e) {
-  const rect = this.canvas.getBoundingClientRect();
-  const x = e.clientX - rect.left;
-  const y = e.clientY - rect.top;
+  handleClick(e) {
+    const rect = this.canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  gameState.game.locations.forEach((location, i) => {
-    const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-    if (dist <= 40) {
-      // ✅ Create ripple at location.x, location.y
-      const ripple = document.createElement("div");
-      ripple.classList.add("ripple");
-      ripple.style.left = `${location.x}px`;
-      ripple.style.top = `${location.y}px`;
-      ripple.style.transform = "translate(-50%, -50%)"; // Center on point
+    gameState.game.locations.forEach((location, i) => {
+      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+      if (dist <= 40) {
+        // ✅ Create ripple at location.x, location.y
+        const ripple = document.createElement("div");
+        ripple.classList.add("ripple");
+        ripple.style.left = `${location.x}px`;
+        ripple.style.top = `${location.y}px`;
+        ripple.style.transform = "translate(-50%, -50%)"; // Center on point
 
-      // ✅ Append to .canvas-container, not canvas.parentElement
-      const container = this.canvas.closest(".canvas-container");
-      container.appendChild(ripple);
+        // ✅ Append to .canvas-container, not canvas.parentElement
+        const container = this.canvas.closest(".canvas-container");
+        container.appendChild(ripple);
 
-      // Remove after animation
-      setTimeout(() => ripple.remove(), 1500);
+        // Remove after animation
+        setTimeout(() => ripple.remove(), 1500);
 
-      // Travel logic
-      if (i !== gameState.game.location) {
-        travel(i);
-      } else {
-        enterLocation(i);
+        // Travel logic
+        if (i !== gameState.game.location) {
+          travel(i);
+        } else {
+          enterLocation(i);
+        }
       }
-    }
-  });
-}
+    });
+  }
 
   handleMouseMove_old(e) {
     const rect = this.canvas.getBoundingClientRect();

@@ -1,479 +1,347 @@
-  // === 1. IMPORT EXTERNAL CLASSES ===
-      import { GameState } from "./classes/GameState.js";
-      import { MapRenderer } from "./classes/MapRenderer.js";
-     
+// === 1. IMPORT EXTERNAL CLASSES ===
+import { GameState } from "./classes/GameState.js";
+import { MapRenderer } from "./classes/MapRenderer.js";
+import { MarketLogic } from "./classes/MarketLogic.js";
+import { MarketActions} from "./classes/MarketActions.js";
 
-      // === 2. GAME STATE OBJECT ===
-      const game = {
-        day: 1,
-        gold: 100,
-        location: 0,
-        inventory: [],
-        prices: {},
-        stock: {},
-        saturation: {},
-        locations: [],
-        locationGrid: [],
-        items: [],
-        quests: [],
-        achievements: [],
-        currentQuest: null,
-        unlockedAchievements: new Set(),
-        seed: Date.now() % 10000,
-        rules: null,
-        gameData: null,
-      };
+// === 2. GAME STATE OBJECT ===
+const game = {
+  day: 1,
+  gold: 100,
+  location: 0,
+  inventory: [],
+  prices: {},
+  stock: {},
+  saturation: {},
+  locations: [],
+  locationGrid: [],
+  items: [],
+  quests: [],
+  achievements: [],
+  currentQuest: null,
+  unlockedAchievements: new Set(),
+  seed: Date.now() % 10000,
+  rules: null,
+  gameData: null,
+};
 
-      // === 3. CREATE GAMESTATE INSTANCE ===
-      const gameState = new GameState(game);
-   
+// === 3. CREATE GAMESTATE INSTANCE ===
+const gameState = new GameState(game);
+const marketLogic = new MarketLogic(gameState);
+const marketActions = new MarketLogic(gameState, marketLogic);
 
-      // Grid system utilities
-      class GridSystem {
-        static findLocationPosition(locationIndex) {
-          for (let y = 0; y < gameState.game.locationGrid.length; y++) {
-            for (let x = 0; x < gameState.game.locationGrid[y].length; x++) {
-              if (gameState.game.locationGrid[y][x] === locationIndex) {
-                return { x, y };
-              }
-            }
-          }
-          return null;
-        }
-        static areAdjacent(locIndexA, locIndexB) {
-          const posA = this.findLocationPosition(locIndexA);
-          const posB = this.findLocationPosition(locIndexB);
-          if (!posA || !posB) return false;
-          const dx = Math.abs(posA.x - posB.x);
-          const dy = Math.abs(posA.y - posB.y);
-          return dx <= 1 && dy <= 1 && dx + dy > 0;
-        }
-        static getGridDistance(locIndexA, locIndexB) {
-          const posA = this.findLocationPosition(locIndexA);
-          const posB = this.findLocationPosition(locIndexB);
-          if (!posA || !posB) return Infinity;
-          return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
-        }
 
-        static getTravelTime(fromIndex, toIndex) {
-          const path = this.findPath(fromIndex, toIndex);
-          if (path.length <= 1) return Infinity;
-
-          // Sum actual grid distance between each step
-          let totalDays = 0;
-          for (let i = 1; i < path.length; i++) {
-            totalDays += this.getGridDistance(path[i - 1], path[i]);
-          }
-          return totalDays;
-        }
-
-        static findPath(fromIndex, toIndex) {
-          if (fromIndex === toIndex) return [fromIndex];
-          const openSet = [{ location: fromIndex, g: 0, f: 0, parent: null }];
-          const closedSet = new Set();
-          while (openSet.length > 0) {
-            // Sort by f-score, pick lowest
-            openSet.sort((a, b) => a.f - b.f);
-            const current = openSet.shift();
-            if (current.location === toIndex) {
-              // Reconstruct path
-              const path = [];
-              let node = current;
-              while (node) {
-                path.unshift(node.location);
-                node = node.parent;
-              }
-              return path;
-            }
-            closedSet.add(current.location);
-            // Only consider real connections
-            const neighbors = gameState.game.connections[current.location];
-            for (const neighborIndex of neighbors) {
-              if (closedSet.has(neighborIndex)) continue;
-              const g = current.g + 1;
-              const h = GridSystem.getGridDistance(neighborIndex, toIndex);
-              const f = g + h;
-              const existing = openSet.find((n) => n.location === neighborIndex);
-              if (!existing || g < existing.g) {
-                openSet.push({
-                  location: neighborIndex,
-                  g,
-                  f,
-                  parent: current,
-                });
-              }
-            }
-          }
-          return []; // No path
+// Grid system utilities
+class GridSystem {
+  static findLocationPosition(locationIndex) {
+    for (let y = 0; y < gameState.game.locationGrid.length; y++) {
+      for (let x = 0; x < gameState.game.locationGrid[y].length; x++) {
+        if (gameState.game.locationGrid[y][x] === locationIndex) {
+          return { x, y };
         }
       }
+    }
+    return null;
+  }
+  static areAdjacent(locIndexA, locIndexB) {
+    const posA = this.findLocationPosition(locIndexA);
+    const posB = this.findLocationPosition(locIndexB);
+    if (!posA || !posB) return false;
+    const dx = Math.abs(posA.x - posB.x);
+    const dy = Math.abs(posA.y - posB.y);
+    return dx <= 1 && dy <= 1 && dx + dy > 0;
+  }
+  static getGridDistance(locIndexA, locIndexB) {
+    const posA = this.findLocationPosition(locIndexA);
+    const posB = this.findLocationPosition(locIndexB);
+    if (!posA || !posB) return Infinity;
+    return Math.abs(posA.x - posB.x) + Math.abs(posA.y - posB.y);
+  }
 
-      // Quest system
-      class QuestLogic {
-        static generateQuest(currentLocationIndex, baseSeed, currentDay) {
-          let seedRng = baseSeed + 1;
-          function seededRandom() {
-            seedRng = (seedRng * 9301 + 49297) % 233280;
-            return seedRng / 233280;
-          }
-          const item = gameState.game.items[Math.floor(seededRandom() * gameState.game.items.length)];
-          const validTargets = [];
-          gameState.game.locations.forEach((location, index) => {
-            if (index === currentLocationIndex) return;
-            const multiplier = location.multipliers[item.category] || 1.0;
-            if (multiplier >= 1.2) {
-              validTargets.push(location);
-            }
-          });
-          if (validTargets.length === 0) {
-            validTargets.push(...gameState.game.locations.filter((_, i) => i !== currentLocationIndex));
-          }
-          const targetLocation = validTargets[Math.floor(seededRandom() * validTargets.length)];
-          let quantity;
-          switch (item.category) {
-            case "basic":
-              quantity = Math.floor(seededRandom() * 3) + 3;
-              break;
-            case "quality":
-              quantity = Math.floor(seededRandom() * 3) + 2;
-              break;
-            case "premium":
-              quantity = Math.floor(seededRandom() * 2) + 1;
-              break;
-            default:
-              quantity = 3;
-          }
-          const reward = item.basePrice * quantity * 1.5;
-          return {
-            itemId: item.id,
-            targetLocationName: targetLocation.name,
-            quantity: quantity,
-            delivered: 0,
-            reward: Math.round(reward),
-          };
-        }
-        static checkQuestDelivery() {
-          if (!gameState.game.currentQuest) return;
-          const currentLocationName = gameState.game.locations[gameState.game.location].name;
-          if (currentLocationName !== gameState.game.currentQuest.targetLocationName) return;
-          const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
-          if (questItemCount === 0) return;
-          const deliverAmount = Math.min(questItemCount, gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered);
-          gameState.removeFromInventory(gameState.game.currentQuest.itemId, deliverAmount);
-          gameState.updateQuestDelivered(deliverAmount);
-          if (gameState.game.currentQuest.delivered >= gameState.game.currentQuest.quantity) {
-            gameState.updateGold(gameState.game.currentQuest.reward);
-            gameState.completeQuest();
-            const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
-            gameState.setQuest(newQuest);
-          }
-        }
+  static getTravelTime(fromIndex, toIndex) {
+    const path = this.findPath(fromIndex, toIndex);
+    if (path.length <= 1) return Infinity;
 
-        static updateNewsUI() {
-          if (!gameState.game.currentQuest) return false;
-          const currentLocationName = gameState.getCurrentLocation().name;
-          const targetMatch = currentLocationName === gameState.game.currentQuest.targetLocationName;
-          const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
-          const hasEnoughItems = questItemCount >= gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
-          return targetMatch && hasEnoughItems;
-        }
+    // Sum actual grid distance between each step
+    let totalDays = 0;
+    for (let i = 1; i < path.length; i++) {
+      totalDays += this.getGridDistance(path[i - 1], path[i]);
+    }
+    return totalDays;
+  }
 
-        static deliverQuest() {
-          if (!QuestLogic.updateNewsUI()) return;
-          const quest = gameState.game.currentQuest;
-          const questItemCount = gameState.getInventoryCount(quest.itemId);
-          const deliverAmount = Math.min(questItemCount, quest.quantity - quest.delivered);
-          gameState.removeFromInventory(quest.itemId, deliverAmount);
-          gameState.updateQuestDelivered(deliverAmount);
-          if (quest.delivered >= quest.quantity) {
-            gameState.updateGold(quest.reward);
-            gameState.completeQuest();
-            const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
-            gameState.setQuest(newQuest);
-          }
-          updateUI();
+  static findPath(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return [fromIndex];
+    const openSet = [{ location: fromIndex, g: 0, f: 0, parent: null }];
+    const closedSet = new Set();
+    while (openSet.length > 0) {
+      // Sort by f-score, pick lowest
+      openSet.sort((a, b) => a.f - b.f);
+      const current = openSet.shift();
+      if (current.location === toIndex) {
+        // Reconstruct path
+        const path = [];
+        let node = current;
+        while (node) {
+          path.unshift(node.location);
+          node = node.parent;
         }
+        return path;
       }
-
-      // Market Logic
-      class MarketLogic {
-        static generatePrices() {
-          const rules = gameState.game.rules.pricing;
-          const SEASONAL_MIN = rules.seasonal.min;
-          const SEASONAL_RANGE = rules.seasonal.range;
-          const DAILY_MIN = rules.daily.min;
-          const DAILY_RANGE = rules.daily.range;
-          const prices = {};
-          gameState.game.items.forEach((item) => {
-            const base = item.basePrice;
-            const seasonal = SEASONAL_MIN + Math.random() * SEASONAL_RANGE;
-            const daily = DAILY_MIN + Math.random() * DAILY_RANGE;
-            prices[item.id] = Math.round(base * seasonal * daily);
-          });
-          return prices;
-        }
-        static generateStock() {
-          const rules = gameState.game.rules.stock;
-          const MIN_STOCK = rules.minStock;
-          const STOCK_RANGE = rules.stockRange;
-          const stock = {};
-          gameState.game.items.forEach((item) => {
-            stock[item.id] = Math.floor(Math.random() * STOCK_RANGE) + MIN_STOCK;
-          });
-          return stock;
-        }
-        static getPrice(itemId, locationId) {
-          const rules = gameState.game.rules.pricing.saturation;
-          const SATURATION_THRESHOLD = rules.threshold;
-          const SATURATION_PENALTY_RATE = rules.penaltyRate;
-          const DEFAULT_MULTIPLIER = 1;
-          const item = gameState.getItem(itemId);
-          const location = gameState.getLocation(locationId);
-          const basePrice = gameState.getPrice(itemId);
-          const locationMultiplier = location.multipliers[item.category] || DEFAULT_MULTIPLIER;
-          const saturationKey = `${locationId}-${itemId}`;
-          const saturationLevel = gameState.getSaturation(saturationKey);
-          let marketAdjustment = 1.0;
-          if (saturationLevel >= SATURATION_THRESHOLD) {
-            const excessSaturation = saturationLevel - SATURATION_THRESHOLD;
-            marketAdjustment = 1.0 - SATURATION_PENALTY_RATE * (1 + excessSaturation * 0.2);
-            marketAdjustment = Math.max(0.6, marketAdjustment);
-          }
-          const finalPrice = basePrice * locationMultiplier * marketAdjustment;
-          return Math.round(finalPrice);
-        }
-        static canBuy(itemId, quantity) {
-          const price = this.getPrice(itemId, gameState.game.location);
-          const cost = price * quantity;
-          const available = gameState.getStock(itemId);
-          const space = gameState.getInventorySpace();
-          return cost <= gameState.getGold() && quantity <= available && quantity <= space;
-        }
-        static canSell(itemId, quantity) {
-          const owned = gameState.getInventoryCount(itemId);
-          return quantity <= owned;
-        }
-        static getMaxBuyQuantity(itemId) {
-          const price = this.getPrice(itemId, gameState.game.location);
-          const affordable = Math.floor(gameState.getGold() / price);
-          const available = gameState.getStock(itemId);
-          const space = gameState.getInventorySpace();
-          return Math.min(affordable, available, space);
-        }
-        static getMaxSellQuantity(itemId) {
-          return gameState.getInventoryCount(itemId);
-        }
-        static getDealQuality(itemId) {
-          const item = gameState.getItem(itemId);
-          const location = gameState.getCurrentLocation();
-          const multiplier = location.multipliers[item.category] || 1.0;
-          if (multiplier <= 0.8) return "great";
-          if (multiplier <= 0.9) return "good";
-          if (multiplier >= 1.3) return "poor";
-          return "fair";
-        }
-      }
-
-      // Market Actions
-      class MarketActions {
-        static sell(itemId, quantity) {
-          const price = MarketLogic.getPrice(itemId, gameState.game.location);
-          gameState.removeFromInventory(itemId, quantity);
-          gameState.updateGold(price * quantity);
-          const rules = gameState.game.rules.pricing.saturation;
-          if (quantity >= rules.threshold) {
-            const satKey = `${gameState.game.location}-${itemId}`;
-            const currentSaturation = gameState.getSaturation(satKey);
-            const newSaturation = Math.min(rules.maxSaturation, currentSaturation + quantity);
-            gameState.setSaturation(satKey, newSaturation);
-          }
-        }
-        static buy(itemId, quantity) {
-          const price = MarketLogic.getPrice(itemId, gameState.game.location);
-          const cost = price * quantity;
-          gameState.updateGold(-cost);
-          gameState.updateStock(itemId, -quantity);
-          gameState.addToInventory(itemId, quantity, price);
-          const rules = gameState.game.rules.pricing.saturation;
-          /* //Disable buy sell trick
-          if (quantity >= rules.threshold) {
-            const satKey = `${gameState.game.location}-${itemId}`;
-            const buyingSaturation = quantity * rules.buyingSaturationRate;
-            const currentSaturation = gameState.getSaturation(satKey);
-            const newSaturation = Math.min(rules.maxSaturation, currentSaturation + buyingSaturation);
-            gameState.setSaturation(satKey, newSaturation);
-          }
-            //*/
-        }
-
-        static quickBuyAll(itemId) {
-          const max = MarketLogic.getMaxBuyQuantity(itemId);
-          if (max > 0) {
-            MarketActions.buy(itemId, max);
-            updateUI();
-          }
-        }
-
-        static quickSellAll(itemId) {
-          const max = MarketLogic.getMaxSellQuantity(itemId);
-          if (max > 0) {
-            MarketActions.sell(itemId, max);
-            updateUI();
-          }
-        }
-
-        static updatePrices() {
-          const prices = MarketLogic.generatePrices();
-          gameState.setPrices(prices);
-        }
-        static updateStock() {
-          const stock = MarketLogic.generateStock();
-          Object.entries(stock).forEach(([itemId, amount]) => {
-            gameState.setStock(itemId, amount);
+      closedSet.add(current.location);
+      // Only consider real connections
+      const neighbors = gameState.game.connections[current.location];
+      for (const neighborIndex of neighbors) {
+        if (closedSet.has(neighborIndex)) continue;
+        const g = current.g + 1;
+        const h = GridSystem.getGridDistance(neighborIndex, toIndex);
+        const f = g + h;
+        const existing = openSet.find((n) => n.location === neighborIndex);
+        if (!existing || g < existing.g) {
+          openSet.push({
+            location: neighborIndex,
+            g,
+            f,
+            parent: current,
           });
         }
       }
-      
-      // === 6. GAME FUNCTIONS (ALL PRESERVED) ===
-      function travel(locationIndex) {
-        const travelTime = GridSystem.getTravelTime(gameState.game.location, locationIndex);
-        if (travelTime === Infinity) return;
+    }
+    return []; // No path
+  }
+}
 
-        const arrivalDay = gameState.game.day + travelTime;
-        const maxDay = gameState.game.rules.gameplay.maxDays;
-
-        // ❌ Old: if (arrivalDay > maxDay) return;
-        // ✅ New: Allow final arrival, but don't let player keep traveling
-        if (arrivalDay > maxDay) {
-          // Still allow entering the location (no travel)
-          if (locationIndex === gameState.game.location) {
-            enterLocation(locationIndex);
-          }
-          // But don't allow actual travel
-          return;
-        }
-
-        // Otherwise, perform travel
-        gameState.setLocation(locationIndex);
-        gameState.updateDay(travelTime);
-        MarketActions.updatePrices();
-        MarketActions.updateStock();
-        gameState.decaySaturation();
-
-        updateUI();
-        // After updating UI, check if season is over OR no moves possible
-        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
-          endGame();
-        }
+// Quest system
+class QuestLogic {
+  static generateQuest(currentLocationIndex, baseSeed, currentDay) {
+    let seedRng = baseSeed + 1;
+    function seededRandom() {
+      seedRng = (seedRng * 9301 + 49297) % 233280;
+      return seedRng / 233280;
+    }
+    const item = gameState.game.items[Math.floor(seededRandom() * gameState.game.items.length)];
+    const validTargets = [];
+    gameState.game.locations.forEach((location, index) => {
+      if (index === currentLocationIndex) return;
+      const multiplier = location.multipliers[item.category] || 1.0;
+      if (multiplier >= 1.2) {
+        validTargets.push(location);
       }
+    });
+    if (validTargets.length === 0) {
+      validTargets.push(...gameState.game.locations.filter((_, i) => i !== currentLocationIndex));
+    }
+    const targetLocation = validTargets[Math.floor(seededRandom() * validTargets.length)];
+    let quantity;
+    switch (item.category) {
+      case "basic":
+        quantity = Math.floor(seededRandom() * 3) + 3;
+        break;
+      case "quality":
+        quantity = Math.floor(seededRandom() * 3) + 2;
+        break;
+      case "premium":
+        quantity = Math.floor(seededRandom() * 2) + 1;
+        break;
+      default:
+        quantity = 3;
+    }
+    const reward = item.basePrice * quantity * 1.5;
+    return {
+      itemId: item.id,
+      targetLocationName: targetLocation.name,
+      quantity: quantity,
+      delivered: 0,
+      reward: Math.round(reward),
+    };
+  }
+  static checkQuestDelivery() {
+    if (!gameState.game.currentQuest) return;
+    const currentLocationName = gameState.game.locations[gameState.game.location].name;
+    if (currentLocationName !== gameState.game.currentQuest.targetLocationName) return;
+    const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
+    if (questItemCount === 0) return;
+    const deliverAmount = Math.min(questItemCount, gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered);
+    gameState.removeFromInventory(gameState.game.currentQuest.itemId, deliverAmount);
+    gameState.updateQuestDelivered(deliverAmount);
+    if (gameState.game.currentQuest.delivered >= gameState.game.currentQuest.quantity) {
+      gameState.updateGold(gameState.game.currentQuest.reward);
+      gameState.completeQuest();
+      const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
+      gameState.setQuest(newQuest);
+    }
+  }
 
-      function enterLocation(locationIndex) {
-        updateUI();
-        showTrading();
-      }
+  static updateNewsUI() {
+    if (!gameState.game.currentQuest) return false;
+    const currentLocationName = gameState.getCurrentLocation().name;
+    const targetMatch = currentLocationName === gameState.game.currentQuest.targetLocationName;
+    const questItemCount = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
+    const hasEnoughItems = questItemCount >= gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
+    return targetMatch && hasEnoughItems;
+  }
 
-      function showMap() {
-        document.getElementById("mapScreen").classList.remove("hidden");
-        document.getElementById("tradingScreen").classList.add("hidden");
+  static deliverQuest() {
+    if (!QuestLogic.updateNewsUI()) return;
+    const quest = gameState.game.currentQuest;
+    const questItemCount = gameState.getInventoryCount(quest.itemId);
+    const deliverAmount = Math.min(questItemCount, quest.quantity - quest.delivered);
+    gameState.removeFromInventory(quest.itemId, deliverAmount);
+    gameState.updateQuestDelivered(deliverAmount);
+    if (quest.delivered >= quest.quantity) {
+      gameState.updateGold(quest.reward);
+      gameState.completeQuest();
+      const newQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
+      gameState.setQuest(newQuest);
+    }
+    updateUI();
+  }
+}
 
-        // After returning to map, check if any moves are possible
-        if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
-          setTimeout(endGame, 600);
-        }
-        updateUI();
-      }
 
-      function showTrading() {
-        document.getElementById("mapScreen").classList.add("hidden");
-        document.getElementById("tradingScreen").classList.remove("hidden");
-        updateUI();
-       // tradingScreen.show();
-      }
 
-      function updateUI() {
-        document.getElementById("day").textContent = gameState.game.day;
-        document.getElementById("gold").textContent = gameState.getGold();
-        document.getElementById("location").textContent = gameState.getCurrentLocation().name;
-        document.getElementById("inventoryCount").textContent = `${gameState.game.inventory.length}/${gameState.game.rules.gameplay.inventoryLimit}`;
-        updateInventoryUI();
-        updateNewsUI();
-        updateTradingUI();
-       
-        if (window.mapRenderer) mapRenderer.draw();
-      }
 
-      function updateInventoryUI() {
-        const inventory = document.getElementById("inventory");
-        const items = {};
-        gameState.game.inventory.forEach((item) => {
-          items[item.id] = (items[item.id] || 0) + 1;
-        });
 
-        inventory.innerHTML =
-          Object.keys(items).length === 0
-            ? "<div>Empty</div>"
-            : Object.entries(items)
-                .map(([id, count], index) => {
-                  const item = gameState.getItem(id);
-                  return `<div class="inventory-item">
+
+
+// === 6. GAME FUNCTIONS (ALL PRESERVED) ===
+function travel(locationIndex) {
+  const travelTime = GridSystem.getTravelTime(gameState.game.location, locationIndex);
+  if (travelTime === Infinity) return;
+
+  const arrivalDay = gameState.game.day + travelTime;
+  const maxDay = gameState.game.rules.gameplay.maxDays;
+
+  // ❌ Old: if (arrivalDay > maxDay) return;
+  // ✅ New: Allow final arrival, but don't let player keep traveling
+  if (arrivalDay > maxDay) {
+    // Still allow entering the location (no travel)
+    if (locationIndex === gameState.game.location) {
+      enterLocation(locationIndex);
+    }
+    // But don't allow actual travel
+    return;
+  }
+
+  // Otherwise, perform travel
+  gameState.setLocation(locationIndex);
+  gameState.updateDay(travelTime);
+  MarketActions.updatePrices();
+  MarketActions.updateStock();
+  gameState.decaySaturation();
+
+  updateUI();
+  // After updating UI, check if season is over OR no moves possible
+  if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
+    endGame();
+  }
+}
+
+function enterLocation(locationIndex) {
+  updateUI();
+  showTrading();
+}
+
+function showMap() {
+  document.getElementById("mapScreen").classList.remove("hidden");
+  document.getElementById("tradingScreen").classList.add("hidden");
+
+  // After returning to map, check if any moves are possible
+  if (gameState.game.day >= gameState.game.rules.gameplay.maxDays || !canReachAnyLocation()) {
+    setTimeout(endGame, 600);
+  }
+  updateUI();
+}
+
+function showTrading() {
+  document.getElementById("mapScreen").classList.add("hidden");
+  document.getElementById("tradingScreen").classList.remove("hidden");
+  updateUI();
+  // tradingScreen.show();
+}
+
+function updateUI() {
+  document.getElementById("day").textContent = gameState.game.day;
+  document.getElementById("gold").textContent = gameState.getGold();
+  document.getElementById("location").textContent = gameState.getCurrentLocation().name;
+  document.getElementById("inventoryCount").textContent = `${gameState.game.inventory.length}/${gameState.game.rules.gameplay.inventoryLimit}`;
+  updateInventoryUI();
+  updateNewsUI();
+  updateTradingUI();
+
+  if (window.mapRenderer) mapRenderer.draw();
+}
+
+function updateInventoryUI() {
+  const inventory = document.getElementById("inventory");
+  const items = {};
+  gameState.game.inventory.forEach((item) => {
+    items[item.id] = (items[item.id] || 0) + 1;
+  });
+
+  inventory.innerHTML =
+    Object.keys(items).length === 0
+      ? "<div>Empty</div>"
+      : Object.entries(items)
+          .map(([id, count], index) => {
+            const item = gameState.getItem(id);
+            return `<div class="inventory-item">
                           <span class="inventory-item-icon" style="--index: ${index};">${item.emoji}</span>
                           <span class="inventory-item-text">${item.name}</span>
                           <span class="inventory-item-count">x${count}</span>
                       </div>`;
-                })
-                .join("");
-      }
+          })
+          .join("");
+}
 
-      function updateNewsUI() {
-        const newsContainer = document.getElementById("news");
-        const items = [];
-        if (gameState.game.currentQuest) {
-          const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
-          items.push(`<div class="quest-item">
+function updateNewsUI() {
+  const newsContainer = document.getElementById("news");
+  const items = [];
+  if (gameState.game.currentQuest) {
+    const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
+    items.push(`<div class="quest-item">
                                 <div class="quest-title">Deliver ${questItem.name} to ${gameState.game.currentQuest.targetLocationName}</div>
                                 <div class="quest-progress">Progress: ${gameState.game.currentQuest.delivered}/${gameState.game.currentQuest.quantity} ${questItem.name} delivered | Reward: ${gameState.game.currentQuest.reward} gold </div>
                             </div>`);
-        }
-        const current = gameState.getCurrentLocation();
-        gameState.game.items.forEach((item) => {
-          const price = MarketLogic.getPrice(item.id, gameState.game.location);
-          const multiplier = current.multipliers[item.category];
-          if (multiplier < 0.9) {
-            items.push(`<div class="news-item market-opportunity">
+  }
+  const current = gameState.getCurrentLocation();
+  gameState.game.items.forEach((item) => {
+    const price = marketLogic.getPrice(item.id, gameState.game.location);
+    const multiplier = current.multipliers[item.category];
+    if (multiplier < 0.9) {
+      items.push(`<div class="news-item market-opportunity">
                                       ${item.emoji} Great ${item.name} prices here!
                                   </div>`);
-          }
-        });
-        const genericNews = gameState.game.gameData.genericNews;
-        while (items.length < 6) {
-          items.push(`<div class="news-item">${genericNews[Math.floor(Math.random() * genericNews.length)]}</div>`);
-        }
-        newsContainer.innerHTML = items.slice(0, 6).join("");
-      }
+    }
+  });
+  const genericNews = gameState.game.gameData.genericNews;
+  while (items.length < 6) {
+    items.push(`<div class="news-item">${genericNews[Math.floor(Math.random() * genericNews.length)]}</div>`);
+  }
+  newsContainer.innerHTML = items.slice(0, 6).join("");
+}
 
+function updateTradingUI() {
+  const items = document.getElementById("items");
+  const questHint = document.getElementById("questHint");
+  const currentLocation = gameState.getCurrentLocation();
+  const headerEmoji = document.querySelector(".header-left > div");
+  const maxDay = gameState.game.rules.gameplay.maxDays;
+  const isSeasonOver = gameState.game.day >= maxDay;
+  const canTravel = canReachAnyLocation();
+  const isGameOver = isSeasonOver || !canTravel; // ✅ New: Check both conditions
+  const canBuyItems = canTravel && !isSeasonOver; // Can only buy if you can travel AND season isn't over
 
-      
-      function updateTradingUI() {
-        const items = document.getElementById("items");
-        const questHint = document.getElementById("questHint");
-        const currentLocation = gameState.getCurrentLocation();
-        const headerEmoji = document.querySelector(".header-left > div");
-        const maxDay = gameState.game.rules.gameplay.maxDays;
-        const isSeasonOver = gameState.game.day >= maxDay;
-        const canTravel = canReachAnyLocation();
-        const isGameOver = isSeasonOver || !canTravel; // ✅ New: Check both conditions
-        const canBuyItems = canTravel && !isSeasonOver; // Can only buy if you can travel AND season isn't over
+  // Update header
+  headerEmoji.textContent = currentLocation.emoji;
+  document.querySelector(".location-subtitle").textContent = currentLocation.flavorText;
 
-        // Update header
-        headerEmoji.textContent = currentLocation.emoji;
-        document.querySelector(".location-subtitle").textContent = currentLocation.flavorText;
-
-        // === DYNAMIC BANNER LOGIC ===
-        if (isGameOver) {
-          // ✅ Use isGameOver instead of isSeasonOver
-          //if (isSeasonOver) {
-          // 🍂 Season is over — show closure and restart
-          questHint.innerHTML = `
+  // === DYNAMIC BANNER LOGIC ===
+  if (isGameOver) {
+    // ✅ Use isGameOver instead of isSeasonOver
+    //if (isSeasonOver) {
+    // 🍂 Season is over — show closure and restart
+    questHint.innerHTML = `
       <div class="quest-banner">
         <div class="quest-icon">🍂</div>
         <div class="quest-text">
@@ -485,17 +353,17 @@
         </button>
       </div>
     `;
-          //}
-        } else if (gameState.game.currentQuest) {
-          // 📋 Active quest — show delivery option
-          const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
-          const canDeliver = QuestLogic.updateNewsUI();
-          const owned = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
-          const needed = gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
-          const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
-          const buttonDisabled = !canDeliver;
+    //}
+  } else if (gameState.game.currentQuest) {
+    // 📋 Active quest — show delivery option
+    const questItem = gameState.getItem(gameState.game.currentQuest.itemId);
+    const canDeliver = QuestLogic.updateNewsUI();
+    const owned = gameState.getInventoryCount(gameState.game.currentQuest.itemId);
+    const needed = gameState.game.currentQuest.quantity - gameState.game.currentQuest.delivered;
+    const buttonText = canDeliver ? "✅ Deliver" : "❌ Need More";
+    const buttonDisabled = !canDeliver;
 
-          questHint.innerHTML = `
+    questHint.innerHTML = `
       <div class="quest-banner">
         <div class="quest-icon">📋</div>
         <div class="quest-text">
@@ -507,9 +375,9 @@
         </button>
       </div>
     `;
-        } else {
-          // ❓ No quest — show market insight
-          questHint.innerHTML = `
+  } else {
+    // ❓ No quest — show market insight
+    questHint.innerHTML = `
       <div class="quest-banner">
         <div class="quest-icon">💡</div>
         <div class="quest-text">
@@ -518,42 +386,42 @@
         </div>
       </div>
     `;
-        }
+  }
 
-        // === MARKET INSIGHT ===
-        const insightText = document.getElementById("insightText");
-        const goodDeals = gameState.game.items.filter((item) => {
-          const multiplier = currentLocation.multipliers[item.category] || 1.0;
-          return multiplier <= 0.9;
-        });
-        if (goodDeals.length > 0) {
-          const avgDiscount = Math.round((1 - goodDeals.reduce((sum, item) => sum + (currentLocation.multipliers[item.category] || 1.0), 0) / goodDeals.length) * 100);
-          insightText.textContent = `Great prices here! (${avgDiscount}% below average)`;
-        } else {
-          insightText.textContent = "Standard market prices";
-        }
+  // === MARKET INSIGHT ===
+  const insightText = document.getElementById("insightText");
+  const goodDeals = gameState.game.items.filter((item) => {
+    const multiplier = currentLocation.multipliers[item.category] || 1.0;
+    return multiplier <= 0.9;
+  });
+  if (goodDeals.length > 0) {
+    const avgDiscount = Math.round((1 - goodDeals.reduce((sum, item) => sum + (currentLocation.multipliers[item.category] || 1.0), 0) / goodDeals.length) * 100);
+    insightText.textContent = `Great prices here! (${avgDiscount}% below average)`;
+  } else {
+    insightText.textContent = "Standard market prices";
+  }
 
-        // === ITEM GRID ===
-        items.innerHTML = gameState.game.items
-          .map((item) => {
-            const price = MarketLogic.getPrice(item.id, gameState.game.location);
-            const stock = gameState.getStock(item.id);
-            const owned = gameState.getInventoryCount(item.id);
-            //const maxBuy = canBuyItems ? MarketLogic.getMaxBuyQuantity(item.id) : 0;
-            const maxBuy = isGameOver ? 0 : MarketLogic.getMaxBuyQuantity(item.id);
-            const maxSell = MarketLogic.getMaxSellQuantity(item.id);
-            const dealQuality = MarketLogic.getDealQuality(item.id);
-            const avgPurchasePrice = gameState.getAveragePurchasePrice(item.id);
-            const dealClasses = { great: "deal-great", good: "deal-good", fair: "deal-fair", poor: "deal-poor" };
-            const dealText = { great: "Great!", good: "Good", fair: "Fair", poor: "Poor" };
-            const rowClasses = ["item-row"];
-            if (dealQuality === "great" || dealQuality === "good") rowClasses.push("good-deal");
-            else if (dealQuality === "poor") rowClasses.push("bad-deal");
-            if (stock === 0) rowClasses.push("no-stock");
+  // === ITEM GRID ===
+  items.innerHTML = gameState.game.items
+    .map((item) => {
+      const price = marketLogic.getPrice(item.id, gameState.game.location);
+      const stock = gameState.getStock(item.id);
+      const owned = gameState.getInventoryCount(item.id);
+      //const maxBuy = canBuyItems ? marketLogic.getMaxBuyQuantity(item.id) : 0;
+      const maxBuy = isGameOver ? 0 : marketLogic.getMaxBuyQuantity(item.id);
+      const maxSell = marketLogic.getMaxSellQuantity(item.id);
+      const dealQuality = marketLogic.getDealQuality(item.id);
+      const avgPurchasePrice = gameState.getAveragePurchasePrice(item.id);
+      const dealClasses = { great: "deal-great", good: "deal-good", fair: "deal-fair", poor: "deal-poor" };
+      const dealText = { great: "Great!", good: "Good", fair: "Fair", poor: "Poor" };
+      const rowClasses = ["item-row"];
+      if (dealQuality === "great" || dealQuality === "good") rowClasses.push("good-deal");
+      else if (dealQuality === "poor") rowClasses.push("bad-deal");
+      if (stock === 0) rowClasses.push("no-stock");
 
-            const displayPrice = stock === 0 ? "--" : `${price}g${avgPurchasePrice !== null ? ` (${avgPurchasePrice}g avg)` : ""}`;
+      const displayPrice = stock === 0 ? "--" : `${price}g${avgPurchasePrice !== null ? ` (${avgPurchasePrice}g avg)` : ""}`;
 
-            return `
+      return `
         <div class="${rowClasses.join(" ")}">
           <div class="item-visual">
             <div class="item-icon">${item.emoji}</div>
@@ -596,60 +464,58 @@
             </button>
           </div>
         </div>`;
-          })
-          .join("");
-      }
+    })
+    .join("");
+}
 
+function changeQuantity(itemId, type, delta) {
+  const element = document.getElementById(`${type}-${itemId}`);
+  let current = parseInt(element.textContent);
+  current = Math.max(1, current + delta);
+  const max = type === "buy" ? marketLogic.getMaxBuyQuantity(itemId) : marketLogic.getMaxSellQuantity(itemId);
+  element.textContent = Math.min(current, max);
+}
 
+function executeTrade(itemId, type) {
+  const quantity = parseInt(document.getElementById(`${type}-${itemId}`).textContent);
+  if (type === "buy" && marketLogic.canBuy(itemId, quantity)) {
+    MarketActions.buy(itemId, quantity);
+  } else if (type === "sell" && marketLogic.canSell(itemId, quantity)) {
+    MarketActions.sell(itemId, quantity);
+  }
+  updateUI();
+}
 
-      function changeQuantity(itemId, type, delta) {
-        const element = document.getElementById(`${type}-${itemId}`);
-        let current = parseInt(element.textContent);
-        current = Math.max(1, current + delta);
-        const max = type === "buy" ? MarketLogic.getMaxBuyQuantity(itemId) : MarketLogic.getMaxSellQuantity(itemId);
-        element.textContent = Math.min(current, max);
-      }
+function canReachAnyLocation() {
+  const currentDay = gameState.game.day;
+  const maxDay = gameState.game.rules.gameplay.maxDays;
+  const currentLocation = gameState.game.location;
 
-      function executeTrade(itemId, type) {
-        const quantity = parseInt(document.getElementById(`${type}-${itemId}`).textContent);
-        if (type === "buy" && MarketLogic.canBuy(itemId, quantity)) {
-          MarketActions.buy(itemId, quantity);
-        } else if (type === "sell" && MarketLogic.canSell(itemId, quantity)) {
-          MarketActions.sell(itemId, quantity);
-        }
-        updateUI();
-      }
+  for (let i = 0; i < gameState.game.locations.length; i++) {
+    if (i === currentLocation) continue;
+    const travelTime = GridSystem.getTravelTime(currentLocation, i);
+    if (travelTime === Infinity) continue;
+    if (currentDay + travelTime <= maxDay) return true;
+  }
+  return false;
+}
 
-      function canReachAnyLocation() {
-        const currentDay = gameState.game.day;
-        const maxDay = gameState.game.rules.gameplay.maxDays;
-        const currentLocation = gameState.game.location;
+function checkGameEnd() {
+  if (!canReachAnyLocation()) {
+    setTimeout(endGame, 600);
+  }
+}
 
-        for (let i = 0; i < gameState.game.locations.length; i++) {
-          if (i === currentLocation) continue;
-          const travelTime = GridSystem.getTravelTime(currentLocation, i);
-          if (travelTime === Infinity) continue;
-          if (currentDay + travelTime <= maxDay) return true;
-        }
-        return false;
-      }
+// === Update travel() to call checkGameEnd ===
+// (Already updated in your codebase — just ensure it's called at the end)
 
-      function checkGameEnd() {
-        if (!canReachAnyLocation()) {
-          setTimeout(endGame, 600);
-        }
-      }
+function endGame() {
+  const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
+  const reason = "The season has ended. The roads grow quiet until next year.";
 
-      // === Update travel() to call checkGameEnd ===
-      // (Already updated in your codebase — just ensure it's called at the end)
-
-      function endGame() {
-        const profit = gameState.game.gold - gameState.game.rules.gameplay.startingGold;
-        const reason = "The season has ended. The roads grow quiet until next year.";
-
-        // Update the quest banner to show season over + restart button
-        const questHint = document.getElementById("questHint");
-        questHint.innerHTML = `
+  // Update the quest banner to show season over + restart button
+  const questHint = document.getElementById("questHint");
+  questHint.innerHTML = `
           <div class="quest-banner">
             <div class="quest-icon">🍂</div>
             <div class="quest-text">
@@ -662,124 +528,124 @@
           </div>
         `;
 
-        // Optional: Show a subtle overlay (keep it cozy)
-        // const gameOverEl = document.getElementById("gameOver");
-        //gameOverEl.innerHTML = `
-        //  <div>
-        //    <h2>Season Complete!</h2>
-        //    <div>Final Profit: <span id="profit">${profit}</span> gold</div>
-        //  </div>
-        //`;
-        //gameOverEl.style.display = "flex";
-      }
+  // Optional: Show a subtle overlay (keep it cozy)
+  // const gameOverEl = document.getElementById("gameOver");
+  //gameOverEl.innerHTML = `
+  //  <div>
+  //    <h2>Season Complete!</h2>
+  //    <div>Final Profit: <span id="profit">${profit}</span> gold</div>
+  //  </div>
+  //`;
+  //gameOverEl.style.display = "flex";
+}
 
-      function resetGame() {
-        // Reset game state
-        gameState.reset();
+function resetGame() {
+  // Reset game state
+  gameState.reset();
 
-        // Clear old location positions (force re-layout)
-        gameState.game.locations.forEach((loc) => {
-          delete loc.x;
-          delete loc.y;
-        });
+  // Clear old location positions (force re-layout)
+  gameState.game.locations.forEach((loc) => {
+    delete loc.x;
+    delete loc.y;
+  });
 
-        // Regenerate world
-        gameState.generateLocations();
+  // Regenerate world
+  gameState.generateLocations();
 
-        // Set up economy and quests
-        const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
-        gameState.setQuest(initialQuest);
-        MarketActions.updatePrices();
-        MarketActions.updateStock();
+  // Set up economy and quests
+  const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
+  gameState.setQuest(initialQuest);
+  MarketActions.updatePrices();
+  MarketActions.updateStock();
 
-        // Hide game over
-        document.getElementById("gameOver").style.display = "none";
+  // Hide game over
+  document.getElementById("gameOver").style.display = "none";
 
-        // Re-initialize map layout and draw
-        if (window.mapRenderer) {
-          mapRenderer.positionLocations(); // ← Critical: recompute positions
-          mapRenderer.draw(); // ← Draw with new layout
-        }
+  // Re-initialize map layout and draw
+  if (window.mapRenderer) {
+    mapRenderer.positionLocations(); // ← Critical: recompute positions
+    mapRenderer.draw(); // ← Draw with new layout
+  }
 
-        // Show map and update UI
-        showMap();
-        updateUI();
-      }
+  // Show map and update UI
+  showMap();
+  updateUI();
+}
 
-      async function loadGameData() {
-        try {
-          const rulesResponse = await fetch("game_rules.json");
-          gameState.game.rules = await rulesResponse.json();
-          const dataResponse = await fetch("game_data.json");
-          gameState.game.gameData = await dataResponse.json();
-          gameState.game.items = gameState.game.gameData.items;
-          return true;
-        } catch (error) {
-          console.error("Failed to load game data:", error);
-          return false;
-        }
-      }
+async function loadGameData() {
+  try {
+    const rulesResponse = await fetch("game_rules.json");
+    gameState.game.rules = await rulesResponse.json();
+    const dataResponse = await fetch("game_data.json");
+    gameState.game.gameData = await dataResponse.json();
+    gameState.game.items = gameState.game.gameData.items;
+    return true;
+  } catch (error) {
+    console.error("Failed to load game data:", error);
+    return false;
+  }
+}
 
-      function fixMapRenderer(ms = 250) {
-        setTimeout(() => {
-          window.dispatchEvent(new Event("resize"));
-          console.log("🎨 MapRenderer: Canvas size fixed with " + ms + " delay");
-        }, ms);
-        //document.querySelector('.game-container').classList.add('show');
-      }
+function fixMapRenderer(ms = 250) {
+  setTimeout(() => {
+    window.dispatchEvent(new Event("resize"));
+    console.log("🎨 MapRenderer: Canvas size fixed with " + ms + " delay");
+  }, ms);
+  //document.querySelector('.game-container').classList.add('show');
+}
 
-      async function init() {
-        try {
-          const dataLoaded = await loadGameData();
-          if (!dataLoaded) throw new Error("Failed to load game data");
-          gameState.setGold(gameState.game.rules.gameplay.startingGold);
-          gameState.generateLocations();
-          const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
-          gameState.setQuest(initialQuest);
-          MarketActions.updatePrices();
-          MarketActions.updateStock();
+async function init() {
+  try {
+    const dataLoaded = await loadGameData();
+    if (!dataLoaded) throw new Error("Failed to load game data");
+    gameState.setGold(gameState.game.rules.gameplay.startingGold);
+    gameState.generateLocations();
+    const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
+    gameState.setQuest(initialQuest);
+    MarketActions.updatePrices();
+    MarketActions.updateStock();
 
-          // Add to init() for debugging
-          console.log("✅ Game data loaded:", gameState.game.rules);
-          console.log("✅ Locations generated:", gameState.game.locations);
-          console.log("✅ Canvas exists:", !!document.getElementById("canvas"));
+    // Add to init() for debugging
+    console.log("✅ Game data loaded:", gameState.game.rules);
+    console.log("✅ Locations generated:", gameState.game.locations);
+    console.log("✅ Canvas exists:", !!document.getElementById("canvas"));
 
-          console.log(
-            "📍 Locations:",
-            gameState.game.locations.map((l) => l.name)
-          );
-          console.log("🔗 Connections:", gameState.game.connections);
+    console.log(
+      "📍 Locations:",
+      gameState.game.locations.map((l) => l.name)
+    );
+    console.log("🔗 Connections:", gameState.game.connections);
 
-          window.mapRenderer = new MapRenderer(document.getElementById("canvas"));
-          updateUI();
-        } catch (error) {
-          console.error("Failed to initialize game:", error);
-        }
-      }
+    window.mapRenderer = new MapRenderer(document.getElementById("canvas"));
+    updateUI();
+  } catch (error) {
+    console.error("Failed to initialize game:", error);
+  }
+}
 
-      // === 6. EXPOSE FUNCTIONS & CLASSES TO HTML ===
-      window.gameState = gameState;
-      window.MapRenderer = MapRenderer;
-      window.MarketActions = MarketActions;
-      window.GridSystem = GridSystem; // ✅ Required by MapRenderer and travel()
-      window.init = init;
-      window.updateUI = updateUI;
-      window.updateInventoryUI = updateInventoryUI;
-      window.updateNewsUI = updateNewsUI;
-      window.updateTradingUI = updateTradingUI;
-      window.showMap = showMap;
-      window.showTrading = showTrading;
-      window.travel = travel;
-      window.enterLocation = enterLocation;
-      window.deliverQuest = QuestLogic.deliverQuest;
-      window.executeTrade = executeTrade;
-      window.changeQuantity = changeQuantity;
-      window.quickBuyAll = MarketActions.quickBuyAll;
-      window.quickSellAll = MarketActions.quickSellAll;
-      window.endGame = endGame;
-      window.resetGame = resetGame;
-      window.generateLocations = gameState.generateLocations;
+// === 6. EXPOSE FUNCTIONS & CLASSES TO HTML ===
+window.gameState = gameState;
+window.MapRenderer = MapRenderer;
+window.MarketActions = MarketActions;
+window.GridSystem = GridSystem; // ✅ Required by MapRenderer and travel()
+window.init = init;
+window.updateUI = updateUI;
+window.updateInventoryUI = updateInventoryUI;
+window.updateNewsUI = updateNewsUI;
+window.updateTradingUI = updateTradingUI;
+window.showMap = showMap;
+window.showTrading = showTrading;
+window.travel = travel;
+window.enterLocation = enterLocation;
+window.deliverQuest = QuestLogic.deliverQuest;
+window.executeTrade = executeTrade;
+window.changeQuantity = changeQuantity;
+window.quickBuyAll = MarketActions.quickBuyAll;
+window.quickSellAll = MarketActions.quickSellAll;
+window.endGame = endGame;
+window.resetGame = resetGame;
+window.generateLocations = gameState.generateLocations;
 
-      // === 7. START GAME IMMEDIATELY ===
-      await init(); // No need to delay game logic
-      fixMapRenderer(250);
+// === 7. START GAME IMMEDIATELY ===
+await init(); // No need to delay game logic
+fixMapRenderer(250);
