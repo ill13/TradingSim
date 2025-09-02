@@ -5,16 +5,20 @@ You and I are the founders of an indie game partnership that specializes in "coz
 
 
 
-- I've already cut and pasted the MarketLogic code into /src/classes/MarketLogic.js
-- I've removed the text "static " from MarketLogic.js
-- I've written the import for Main.js "import { MarketLogic } from "./classes/MarketLogic.js";"
+- I've already cut and pasted the MarketActions code into /src/classes/MarketActions.js
+- I've removed the text "static " from MarketActions.js
+- I've written the import for Main.js "import { MarketActions } from "./classes/MarketActions.js";"
 - I've created a constructor "constructor(gameState) {
         this.gameState = gameState;
+        this.marketLogic = marketLogic;
     }"
-- I added "export" before "class MarketLogic"
-- I added "const marketLogic = new MarketLogic(gameState);" right after "const gameState = new GameState(game);"
-- I used find & replace in MarketLogic to find " gameState." and replaced all with " this.gameState."
-- I used the regex "MarketLogic\.(\w+)\(" to find and replace with "marketLogic.$1("
+- I added "export" before "class MarketActions"
+- I added "const MarketActions = new MarketActions(gameState);" right after "const gameState = new GameState(game);"
+- I used find & replace in MarketActions to find " gameState." and replaced all with " this.gameState."
+- I used find & replace in MarketActions to find " marketLogic." and replaced all with " this.marketLogic."
+
+
+- I used the regex "MarketActions\.(\w+)\(" to find and replace with "MarketActions.$1("
 
 
 MarketActions\.(\w+)\( 

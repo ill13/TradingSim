@@ -62,7 +62,7 @@ export class MarketLogic {
   }
   getMaxBuyQuantity(itemId) {
     const price = this.getPrice(itemId, this.gameState.game.location);
-    const affordable = Math.floor(gameState.getGold() / price);
+    const affordable = Math.floor(this.gameState.getGold() / price);
     const available = this.gameState.getStock(itemId);
     const space = this.gameState.getInventorySpace();
     return Math.min(affordable, available, space);

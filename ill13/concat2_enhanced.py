@@ -21,7 +21,7 @@ DEFAULT_CONFIG = {
         "simple.min.css", "ill13_coding.md", "classless-tiny.css", "classless.css",
         "complaints.txt", "profile_samples.txt", "__init__.py", "MTS_combined_files.txt",
         "MTS_file_tree.txt", "create_folders_script.py", "frontend_reference_template.md",
-        "concat2.py", "concat_config.json"
+        "concat2.py", "concat_config.json","styles.css"
     ],
     "ignored_dirs": [
         "logs", "log", "cache", "vendor", "node_modules", ".git", "git", "venv",

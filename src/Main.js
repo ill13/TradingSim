@@ -28,7 +28,11 @@ const game = {
 // === 3. CREATE GAMESTATE INSTANCE ===
 const gameState = new GameState(game);
 const marketLogic = new MarketLogic(gameState);
-const marketActions = new MarketLogic(gameState, marketLogic);
+const marketActions = new MarketActions(gameState, marketLogic);
+
+const boundQuickBuyAll = marketActions.quickBuyAll.bind(marketActions);
+const boundQuickSellAll = marketActions.quickSellAll.bind(marketActions);
+
 
 
 // Grid system utilities
@@ -226,8 +230,8 @@ function travel(locationIndex) {
   // Otherwise, perform travel
   gameState.setLocation(locationIndex);
   gameState.updateDay(travelTime);
-  MarketActions.updatePrices();
-  MarketActions.updateStock();
+  marketActions.updatePrices();
+  marketActions.updateStock();
   gameState.decaySaturation();
 
   updateUI();
@@ -440,48 +444,70 @@ function updateTradingUI() {
             </div>
           </div>
           <div class="buy-controls">
-            <div class="quantity-action-row">
-              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
-              <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
-                BUY <span id="buy-${item.id}">1</span>
-              </button>
-              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
-            </div>
-            <button class="btn btn-buy action-button" onclick="MarketActions.quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
-              Buy All (${maxBuy})
-            </button>
-          </div>
+  <div class="quantity-action-row">
+    <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', -1)" ${maxBuy === 0 ? "disabled" : ""}>−</button>
+    <button class="btn btn-buy action-button" onclick="executeTrade('${item.id}', 'buy')" ${maxBuy === 0 ? "disabled" : ""} id="buy-button-${item.id}">
+      BUY <span id="buy-${item.id}">1</span>
+    </button>
+    <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'buy', 1)" ${maxBuy === 0 ? "disabled" : ""}>+</button>
+  </div>
+  <button class="btn btn-buy action-button" onclick="quickBuyAll('${item.id}')" ${maxBuy === 0 ? "disabled" : ""}>
+    Buy All (${maxBuy})
+  </button>
+</div>
           <div class="sell-controls">
-            <div class="quantity-action-row">
-              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
-              <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
-                SELL <span id="sell-${item.id}">1</span>
-              </button>
-              <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
-            </div>
-            <button class="btn btn-sell action-button" onclick="MarketActions.quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
-              Sell All (${maxSell})
-            </button>
-          </div>
+  <div class="quantity-action-row">
+    <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', -1)" ${maxSell === 0 ? "disabled" : ""}>−</button>
+    <button class="btn btn-sell action-button" onclick="executeTrade('${item.id}', 'sell')" ${maxSell === 0 ? "disabled" : ""} id="sell-button-${item.id}">
+      SELL <span id="sell-${item.id}">1</span>
+    </button>
+    <button class="quantity-btn" onclick="changeQuantity('${item.id}', 'sell', 1)" ${maxSell === 0 ? "disabled" : ""}>+</button>
+  </div>
+  <button class="btn btn-sell action-button" onclick="quickSellAll('${item.id}')" ${maxSell === 0 ? "disabled" : ""}>
+    Sell All (${maxSell})
+  </button>
+</div>
         </div>`;
     })
     .join("");
 }
 
+
+
 function changeQuantity(itemId, type, delta) {
-  const element = document.getElementById(`${type}-${itemId}`);
-  let current = parseInt(element.textContent);
-  current = Math.max(1, current + delta);
-  const max = type === "buy" ? marketLogic.getMaxBuyQuantity(itemId) : marketLogic.getMaxSellQuantity(itemId);
-  element.textContent = Math.min(current, max);
+    console.log(itemId, type);
+    const element = document.getElementById(`${type}-${itemId}`);
+    if (!element) {
+        console.warn(`Quantity element #${type}-${itemId} not found`);
+        return;
+    }
+    
+    let current = parseInt(element.textContent) || 1;
+    const max = type === "buy"
+        ? marketActions.marketLogic.getMaxBuyQuantity(itemId)
+        : marketActions.marketLogic.getMaxSellQuantity(itemId);
+    
+    const newValue = Math.min(Math.max(current + delta, 1), max);
+    element.textContent = newValue;
+    
+    // Re-enable the main action button
+    const button = document.getElementById(`${type}-button-${itemId}`);
+    if (button) {
+        button.disabled = false;
+    }
+    
+    // Do NOT call updateUI() here as it will overwrite our changes
+    // The UI will be updated when the trade is executed
 }
+
+
 
 function executeTrade(itemId, type) {
   const quantity = parseInt(document.getElementById(`${type}-${itemId}`).textContent);
   if (type === "buy" && marketLogic.canBuy(itemId, quantity)) {
-    MarketActions.buy(itemId, quantity);
+    marketActions.buy(itemId, quantity);
   } else if (type === "sell" && marketLogic.canSell(itemId, quantity)) {
-    MarketActions.sell(itemId, quantity);
+    marketActions.sell(itemId, quantity);
   }
   updateUI();
 }
@@ -555,8 +581,8 @@ function resetGame() {
   // Set up economy and quests
   const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
   gameState.setQuest(initialQuest);
-  MarketActions.updatePrices();
-  MarketActions.updateStock();
+  marketActions.updatePrices();
+  marketActions.updateStock();
 
   // Hide game over
   document.getElementById("gameOver").style.display = "none";
@@ -602,8 +628,8 @@ async function init() {
     gameState.generateLocations();
     const initialQuest = QuestLogic.generateQuest(gameState.game.location, gameState.game.seed, gameState.game.day);
     gameState.setQuest(initialQuest);
-    MarketActions.updatePrices();
-    MarketActions.updateStock();
+    marketActions.updatePrices();
+    marketActions.updateStock();
 
     // Add to init() for debugging
     console.log("✅ Game data loaded:", gameState.game.rules);
@@ -626,7 +652,7 @@ async function init() {
 // === 6. EXPOSE FUNCTIONS & CLASSES TO HTML ===
 window.gameState = gameState;
 window.MapRenderer = MapRenderer;
-window.MarketActions = MarketActions;
+window.marketActions = marketActions;
 window.GridSystem = GridSystem; // ✅ Required by MapRenderer and travel()
 window.init = init;
 window.updateUI = updateUI;
@@ -640,8 +666,9 @@ window.enterLocation = enterLocation;
 window.deliverQuest = QuestLogic.deliverQuest;
 window.executeTrade = executeTrade;
 window.changeQuantity = changeQuantity;
-window.quickBuyAll = MarketActions.quickBuyAll;
-window.quickSellAll = MarketActions.quickSellAll;
+
+window.quickBuyAll = (itemId) => marketActions.quickBuyAll(itemId);
+window.quickSellAll = (itemId) => marketActions.quickSellAll(itemId);
 window.endGame = endGame;
 window.resetGame = resetGame;
 window.generateLocations = gameState.generateLocations;
