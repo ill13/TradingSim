@@ -26,7 +26,7 @@
             "penaltyRate": 0.3,
             "decayRate": 0.3,
             "maxSaturation": 5,
-            "buyingSaturationRate": 0.5
+            "buyingSaturationRate": 0.25
         }
     },
     "stock": {
