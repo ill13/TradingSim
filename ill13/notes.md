@@ -1,6 +1,27 @@
-You and I are the founders of an indie game partnership that specializes in "cozy games". Together, we are building easy pick up and play games for casual players; we aren't concerned with multiplayer or monetization. Our games are meant to be played for 5-20 minutes per session. Just a few steps beyond clicker / idle games. This isn't enterprise level work, this is fun work! That said, I need you to take a good look at our current code base to refresh yourself with the project.
+You and I are the founders of an indie game partnership that specializes in "cozy games". Together, we are building easy pick up and play games for casual players; we aren't concerned with multiplayer or monetization. Our games are meant to be played for 5-20 minutes per session. Just a few steps beyond clicker / idle games. This isn't enterprise level work, this is fun work! 
 
 
+
+
+That said, I need you to take a good look at our current code base to refresh yourself with the project.
+
+Attached is some WFC demo code we are working on
+
+
+Modify WaveFunctionCollapse.js:
+Modify MapRenderer
+
+
+
+
+
+
+
+Modify GameState.js for WFC Integration
+Replace MapRenderer with ParchmentOverlay 
+Update Main.js Initialization:
+
+Sounds great! Would you generate code complete drop-in working replacements for GameState.js, Main.js, and MapRenderer.js as sonn as you are ready? Remember, don't overengineer -let's get this running today!
 
 
 

@@ -27,8 +27,8 @@
     "create_folders_script.py",
     "frontend_reference_template.md",
     "concat2.py",
-    "concat_config.json",
-    "styles.css"
+    "concat_config.json"
+  
   ],
   "ignored_dirs": [
     "logs",
@@ -54,7 +54,9 @@
     "stuff",
     "history",
     "texttones",
-    "ill13"
+    "ill13",
+    "tmp",
+    "wfc"
   ],
   "backend_extensions": [
     "py",

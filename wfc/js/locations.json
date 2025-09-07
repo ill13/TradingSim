@@ -1,0 +1,101 @@
+[
+  {
+    "id": "wharf",
+    "name": "Ocean Wharf",
+    "emoji": "⚓",
+    "rules": {
+      "on": null,
+      "adjacent": ["water"]
+    }
+  },
+  {
+    "id": "cottage",
+    "name": "Bramble Cottage",
+    "emoji": "🛖",
+    "rules": {
+      "on": ["plains", "forest"],
+      "adjacent": ["forest"]
+    }
+  },
+  {
+    "id": "peak",
+    "name": "Dragon's Peak",
+    "emoji": "🐉",
+    "rules": {
+      "on": ["mountain"],
+      "adjacent": []
+    }
+  },
+  {
+    "id": "forge",
+    "name": "Iron Forge",
+    "emoji": "⚒️",
+    "rules": {
+      "on": null,
+      "adjacent": ["forest", "mountain"]
+    }
+  },
+  {
+    "id": "commons",
+    "name": "The Commons",
+    "emoji": "🏘️",
+    "rules": {
+      "on": ["plains"],
+      "adjacent": []
+    }
+  },
+  {
+    "id": "sanctum",
+    "name": "Crystal Sanctum",
+    "emoji": "🔮",
+    "rules": {
+      "on": ["mountain", "forest"],
+      "adjacent": ["water", "swamp"]
+    }
+  },
+  {
+    "id": "crossroads",
+    "name": "Dusty Crossroads",
+    "emoji": "🛣️",
+    "rules": {
+      "on": ["plains", "desert"],
+      "adjacent": ["plains", "desert", "forest", "mountain", "swamp"]
+    }
+  },
+  {
+    "id": "ruins",
+    "name": "Ancient Ruins",
+    "emoji": "🏛️",
+    "rules": {
+      "on": null,
+      "adjacent": ["mountain", "desert"]
+    }
+  },
+  {
+    "id": "lighthouse",
+    "name": "Stormwatch Lighthouse",
+    "emoji": "🗼",
+    "rules": {
+      "on": ["plains"],
+      "adjacent": ["water"]
+    }
+  },
+  {
+    "id": "mines",
+    "name": "Crystal Caverns",
+    "emoji": "💎",
+    "rules": {
+      "on": ["plains"],
+      "adjacent": ["mountain"]
+    }
+  },
+  {
+    "id": "hmm",
+    "name": "Theos Butt",
+    "emoji": "🍑",
+    "rules": {
+      "on": null,
+      "adjacent": null
+  }
+}
+]

@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Wave Function Collapse - Smart Location Placement</title>
+    <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Wave Function Collapse Map</h1>
+            <p>Smart Locations + Data-Driven Terrain</p>
+        </div>
+
+        <div class="controls">
+            <button id="generateBtn">Generate New World</button>
+            <button id="stepBtn">Step Forward</button>
+            <button id="autoBtn" data-running="false">Auto Generate</button>
+            <button id="resetBtn">Reset</button>
+            <span>Grid:</span>
+            <input type="number" id="gridWidth" value="8" min="4" max="24" />
+            <span>×</span>
+            <input type="number" id="gridHeight" value="8" min="4" max="24" />
+        </div>
+
+        <div class="main-content">
+            <div class="map-area">
+                <div id="mapGrid" class="map-grid"></div>
+            </div>
+
+            <div class="sidebar">
+                <div class="info-section">
+                    <h3>Progress</h3>
+                    <div class="progress">
+                        <div id="progressBar" class="progress-bar">0%</div>
+                    </div>
+                    <div class="step-controls">
+                        <button id="slowBtn">Slow</button>
+                        <button id="normalBtn">Normal</button>
+                        <button id="fastBtn">Fast</button>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Terrain Legend</h3>
+                    <div class="legend" id="legend"></div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Statistics</h3>
+                    <div class="stats">
+                        <div class="stat">
+                            <div>Steps</div>
+                            <div id="stepCount">0</div>
+                        </div>
+                        <div class="stat">
+                            <div>Locations</div>
+                            <div id="locationCount">0</div>
+                        </div>
+                        <div class="stat">
+                            <div>Entropy</div>
+                            <div id="entropyCount">0</div>
+                        </div>
+                        <div class="stat">
+                            <div>Collapsed</div>
+                            <div id="collapsedCount">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="info-section">
+                    <h3>Log</h3>
+                    <div id="log" class="log"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/loader.js"></script>
+    <script>
+        let TERRAIN_TYPES, LOCATIONS;
+        let wfc;
+
+        // Load data and initialize
+        async function initApp() {
+            const data = await DataLoader.load();
+            TERRAIN_TYPES = data.TERRAIN_TYPES;
+            LOCATIONS = data.LOCATIONS;
+
+            // Initialize UI with default size
+            const width = parseInt(document.getElementById('gridWidth').value);
+            const height = parseInt(document.getElementById('gridHeight').value);
+            wfc = new WaveFunctionCollapse(width, height);
+
+            // Auto-generate legend
+            updateLegend();
+
+            setupEventListeners();
+            wfc.updateUI();
+        }
+
+        function updateLegend() {
+            const legendEl = document.getElementById('legend');
+            legendEl.innerHTML = '';
+
+            Object.keys(TERRAIN_TYPES).forEach(type => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+
+                const tile = document.createElement('div');
+                tile.className = 'legend-tile';
+                tile.style.backgroundColor = TERRAIN_TYPES[type].color;
+
+                const label = document.createElement('span');
+                label.textContent = type.charAt(0).toUpperCase() + type.slice(1);
+
+                item.appendChild(tile);
+                item.appendChild(label);
+                legendEl.appendChild(item);
+            });
+        }
+
+        function setupEventListeners() {
+            document.getElementById('generateBtn').addEventListener('click', () => {
+                const w = parseInt(document.getElementById('gridWidth').value);
+                const h = parseInt(document.getElementById('gridHeight').value);
+                wfc = new WaveFunctionCollapse(w, h);
+                wfc.generate();
+            });
+
+            document.getElementById('stepBtn').addEventListener('click', () => {
+                if (!wfc.isGenerating) wfc.step();
+            });
+
+            document.getElementById('autoBtn').addEventListener('click', () => {
+                const btn = document.getElementById('autoBtn');
+                if (wfc.isGenerating) {
+                    wfc.isGenerating = false;
+                    btn.textContent = 'Auto Generate';
+                } else {
+                    btn.textContent = 'Auto Step';
+                    wfc.autoGenerate();
+                }
+            });
+
+            document.getElementById('resetBtn').addEventListener('click', () => {
+                const w = parseInt(document.getElementById('gridWidth').value);
+                const h = parseInt(document.getElementById('gridHeight').value);
+                wfc.isGenerating = false;
+                wfc = new WaveFunctionCollapse(w, h);
+                document.getElementById('autoBtn').textContent = 'Auto Generate';
+            });
+
+            document.getElementById('slowBtn').addEventListener('click', () => wfc.autoSpeed = 300);
+            document.getElementById('normalBtn').addEventListener('click', () => wfc.autoSpeed = 100);
+            document.getElementById('fastBtn').addEventListener('click', () => wfc.autoSpeed = 30);
+        }
+
+        // WaveFunctionCollapse Class (same as before, but updated renderGrid + placeLocations)
+        class WaveFunctionCollapse {
+            constructor(width, height) {
+                this.width = width;
+                this.height = height;
+                this.grid = [];
+                this.stepCount = 0;
+                this.locationCount = 0;
+                this.isGenerating = false;
+                this.autoSpeed = 100;
+                this.placedLocations = [];
+                this.init();
+            }
+
+            init() {
+                this.grid = [];
+                this.stepCount = 0;
+                this.locationCount = 0;
+                this.placedLocations = [];
+
+                for (let y = 0; y < this.height; y++) {
+                    this.grid[y] = [];
+                    for (let x = 0; x < this.width; x++) {
+                        this.grid[y][x] = {
+                            possibilities: Object.keys(TERRAIN_TYPES),
+                            collapsed: false,
+                            terrain: null,
+                            location: null
+                        };
+                    }
+                }
+
+                this.log(`Initialized ${this.width}x${this.height} grid`);
+                this.updateUI();
+            }
+
+            getCell(x, y) {
+                if (x < 0 || x >= this.width || y < 0 || y >= this.height) return null;
+                return this.grid[y][x];
+            }
+
+            getNeighbors(x, y) {
+                const directions = [[-1, 0], [1, 0], [0, -1], [0, 1]];
+                return directions
+                    .map(([dx, dy]) => ({ x: x + dx, y: y + dy, cell: this.getCell(x + dx, y + dy) }))
+                    .filter(n => n.cell);
+            }
+
+            findLowestEntropy() {
+                let minEntropy = Infinity;
+                let candidates = [];
+
+                for (let y = 0; y < this.height; y++) {
+                    for (let x = 0; x < this.width; x++) {
+                        const cell = this.grid[y][x];
+                        if (!cell.collapsed && cell.possibilities.length < minEntropy) {
+                            minEntropy = cell.possibilities.length;
+                            candidates = [{ x, y }];
+                        } else if (!cell.collapsed && cell.possibilities.length === minEntropy) {
+                            candidates.push({ x, y });
+                        }
+                    }
+                }
+
+                return candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : null;
+            }
+
+            collapseCell(x, y) {
+                const cell = this.grid[y][x];
+                if (cell.collapsed) return false;
+
+                const weights = cell.possibilities.map(t => TERRAIN_TYPES[t].weight);
+                const totalWeight = weights.reduce((a, b) => a + b, 0);
+                let r = Math.random() * totalWeight;
+                let selected = cell.possibilities[0];
+
+                for (let i = 0; i < cell.possibilities.length; i++) {
+                    r -= weights[i];
+                    if (r <= 0) {
+                        selected = cell.possibilities[i];
+                        break;
+                    }
+                }
+
+                cell.terrain = selected;
+                cell.possibilities = [selected];
+                cell.collapsed = true;
+                this.log(`Collapsed (${x}, ${y}) → ${selected}`);
+                return true;
+            }
+
+            propagate(x, y) {
+                const queue = [{ x, y }];
+                const processed = new Set();
+
+                while (queue.length > 0) {
+                    const { x, y } = queue.shift();
+                    const key = `${x},${y}`;
+                    if (processed.has(key)) continue;
+                    processed.add(key);
+
+                    const neighbors = this.getNeighbors(x, y);
+                    for (const { x: nx, y: ny, cell: neighbor } of neighbors) {
+                        if (neighbor.collapsed) continue;
+
+                        const valid = neighbor.possibilities.filter(p => {
+                            const allowed = TERRAIN_TYPES[p].adjacent;
+                            return this.getNeighbors(nx, ny).some(({ cell: nn }) =>
+                                nn.collapsed ? allowed.includes(nn.terrain) : true
+                            );
+                        });
+
+                        if (valid.length !== neighbor.possibilities.length) {
+                            neighbor.possibilities = valid;
+                            if (valid.length === 0) {
+                                this.log(`Contradiction at (${nx}, ${ny})`);
+                                return false;
+                            }
+                            queue.push({ x: nx, y: ny });
+                        }
+                    }
+                }
+                return true;
+            }
+
+            step() {
+                if (this.isComplete()) return false;
+                const cell = this.findLowestEntropy();
+                if (!cell) return false;
+
+                if (this.collapseCell(cell.x, cell.y)) {
+                    if (!this.propagate(cell.x, cell.y)) {
+                        this.log("Contradiction!");
+                        return false;
+                    }
+                    this.stepCount++;
+                    this.updateUI();
+
+                    const el = document.querySelector(`[data-pos="${cell.x},${cell.y}"]`);
+                    if (el) {
+                        el.classList.add('collapsed');
+                        setTimeout(() => el.classList.remove('collapsed'), 500);
+                    }
+                    return true;
+                }
+                return false;
+            }
+
+            isComplete() {
+                return this.grid.flat().every(c => c.collapsed);
+            }
+
+            // ✅ SMART LOCATION PLACEMENT
+            placeLocations() {
+                const cells = [];
+                for (let y = 0; y < this.height; y++) {
+                    for (let x = 0; x < this.width; x++) {
+                        if (!this.grid[y][x].location) {
+                            cells.push({ x, y });
+                        }
+                    }
+                }
+
+                // Sort locations by strictness (fewer valid spots = place first)
+                const sortedLocations = [...LOCATIONS].sort((a, b) => {
+                    const countValid = (loc) => cells.filter(pos => this.isValidLocationSpot(pos.x, pos.y, loc)).length;
+                    return countValid(a) - countValid(b);
+                });
+
+                for (const loc of sortedLocations) {
+                    const validSpots = cells.filter(pos => this.isValidLocationSpot(pos.x, pos.y, loc));
+                    if (validSpots.length === 0) continue;
+
+                    const pick = validSpots[Math.floor(Math.random() * validSpots.length)];
+                    const { x, y } = pick;
+
+                    this.grid[y][x].location = loc;
+                    this.placedLocations.push({ x, y, loc });
+                    this.locationCount++;
+                    this.log(`📍 Placed ${loc.name} at (${x}, ${y})`);
+
+                    // Remove from pool to avoid overlap
+                    const idx = cells.findIndex(c => c.x === x && c.y === y);
+                    if (idx !== -1) cells.splice(idx, 1);
+                }
+            }
+
+            // ✅ CHECK IF A LOCATION CAN BE PLACED HERE
+            isValidLocationSpot(x, y, location) {
+                const cell = this.grid[y][x];
+                if (cell.location) return false;
+
+                const terrain = cell.terrain;
+
+                const rules = location.rules;
+
+                // Rule 1: Check base terrain ("on")
+                if (rules.on && !rules.on.includes(terrain)) {
+                    return false;
+                }
+
+                // Rule 2: Check adjacent requirements
+                if (rules.adjacent && rules.adjacent.length > 0) {
+                    const neighborTerrains = this.getNeighbors(x, y)
+                        .filter(n => n.cell.collapsed)
+                        .map(n => n.cell.terrain);
+
+                    // For each required type in rules.adjacent, check if at least one exists
+                    const hasAllRequired = rules.adjacent.every(req =>
+                        neighborTerrains.includes(req)
+                    );
+
+                    if (!hasAllRequired) return false;
+                }
+
+                // Optional: Min distance from other locations
+                const tooClose = this.placedLocations.some(p =>
+                    Math.abs(x - p.x) + Math.abs(y - p.y) < 3
+                );
+                if (tooClose) return false;
+
+                return true;
+            }
+
+            generate() {
+                this.init();
+                let attempts = 0;
+                const max = this.width * this.height * 2;
+
+                while (!this.isComplete() && attempts < max) {
+                    if (!this.step()) {
+                        this.log("Resetting...");
+                        this.init();
+                        attempts = 0;
+                    } else {
+                        attempts++;
+                    }
+                }
+
+                if (this.isComplete()) {
+                    this.placeLocations();
+                    this.log("✅ World complete with smart locations!");
+                } else {
+                    this.log("❌ Failed after max attempts");
+                }
+                this.updateUI();
+            }
+
+            async autoGenerate() {
+                if (this.isGenerating) return;
+                this.isGenerating = true;
+                this.init();
+
+                let attempts = 0;
+                const max = this.width * this.height * 2;
+
+                while (!this.isComplete() && attempts < max && this.isGenerating) {
+                    if (!this.step()) {
+                        this.log("Restarting...");
+                        this.init();
+                        attempts = 0;
+                    } else {
+                        attempts++;
+                    }
+                    await this.sleep(this.autoSpeed);
+                }
+
+                if (this.isComplete() && this.isGenerating) {
+                    this.placeLocations();
+                    this.log("🎉 Complete with locations!");
+                }
+
+                this.isGenerating = false;
+                this.updateUI();
+            }
+
+            sleep(ms) {
+                return new Promise(r => setTimeout(r, ms));
+            }
+
+            updateUI() {
+                this.renderGrid();
+                this.updateProgress();
+                this.updateStats();
+            }
+
+            renderGrid() {
+                const container = document.getElementById('mapGrid');
+                const w = this.width;
+                const h = this.height;
+
+                const tileSize = Math.min(48, 600 / Math.max(w, h));
+                const gridStyle = `
+                    grid-template-columns: repeat(${w}, ${tileSize}px);
+                    grid-template-rows: repeat(${h}, ${tileSize}px);
+                    gap: 0;
+                `;
+                container.style.cssText = gridStyle;
+
+                container.innerHTML = '';
+
+                for (let y = 0; y < h; y++) {
+                    for (let x = 0; x < w; x++) {
+                        const cell = this.grid[y][x];
+                        const tile = document.createElement('div');
+                        tile.className = 'tile';
+                        tile.dataset.pos = `${x},${y}`;
+
+                        if (cell.collapsed) {
+                            tile.style.backgroundColor = TERRAIN_TYPES[cell.terrain].color;
+                            if (cell.location) {
+                                tile.classList.add('location');
+                                tile.textContent = cell.location.emoji;
+                                tile.title = cell.location.name;
+                            }
+                        } else {
+                            tile.style.backgroundColor = '#374151';
+                        }
+
+                        tile.style.width = `${tileSize}px`;
+                        tile.style.height = `${tileSize}px`;
+                        container.appendChild(tile);
+                    }
+                }
+            }
+
+            updateProgress() {
+                const total = this.width * this.height;
+                const done = this.grid.flat().filter(c => c.collapsed).length;
+                const p = Math.round((done / total) * 100);
+                const bar = document.getElementById('progressBar');
+                bar.style.width = `${p}%`;
+                bar.textContent = `${p}%`;
+            }
+
+            updateStats() {
+                document.getElementById('stepCount').textContent = this.stepCount;
+                document.getElementById('locationCount').textContent = this.locationCount;
+                const unCollapsed = this.grid.flat().filter(c => !c.collapsed);
+                const entropy = unCollapsed.reduce((sum, c) => sum + c.possibilities.length, 0);
+                const collapsed = this.grid.flat().filter(c => c.collapsed).length;
+                document.getElementById('entropyCount').textContent = entropy;
+                document.getElementById('collapsedCount').textContent = collapsed;
+            }
+
+            log(msg) {
+                const log = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                log.innerHTML += `<div>[${time}] ${msg}</div>`;
+                log.scrollTop = log.scrollHeight;
+            }
+        }
+
+        // Start the app
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>

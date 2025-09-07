@@ -1,0 +1,32 @@
+{
+  "water": {
+    "weight": 15,
+    "adjacent": ["water", "plains", "swamp"],
+    "color": "#2563eb"
+  },
+  "plains": {
+    "weight": 30,
+    "adjacent": ["plains", "forest", "water", "desert", "mountain"],
+    "color": "#16a34a"
+  },
+  "forest": {
+    "weight": 25,
+    "adjacent": ["forest", "plains", "mountain", "swamp"],
+    "color": "#15803d"
+  },
+  "mountain": {
+    "weight": 15,
+    "adjacent": ["mountain", "plains", "forest", "desert","wierdness"],
+    "color": "#6b7280"
+  },
+  "desert": {
+    "weight": 10,
+    "adjacent": ["desert", "plains", "mountain"],
+    "color": "#C2B280"
+  },
+  "swamp": {
+    "weight": 5,
+    "adjacent": ["swamp", "water", "forest"],
+    "color": "#059669"
+  }
+}
