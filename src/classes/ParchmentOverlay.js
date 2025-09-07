@@ -100,7 +100,7 @@ class ParchmentOverlay {
     this.canvas.style.left = "0";
     this.canvas.style.width = `${rect.width}px`;
     this.canvas.style.height = `${rect.height}px`;
-    this.canvas.style.zIndex = "-1";
+    this.canvas.style.zIndex = "1";
     this.canvas.style.pointerEvents = "none";
 
     this.ctx = this.canvas.getContext("2d");
