@@ -2,8 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- <meta name="viewport" content="width=device-width, initial-scale=1.0" /> -->
-    <!-- <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"> -->
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Fleeting Fortune</title>
     <link rel="stylesheet" href="styles.css" />
@@ -53,12 +51,8 @@
       <div id="tradingScreen" class="screen trading-screen hidden">
         <h2 id="locationTitle" hidden>Trading Post</h2>
 
-        <!-- Inventory Status -->
+        <!-- Quest/World Status -->
         <div class="quest-hint" id="questHint">Quest: Deliver 3 Herbs to Dragon's Peak</div>
-        <!-- <div class="inventory-status">
-          <div class="inventory-space" id="inventoryStatus">Inventory: 0/15 items</div> 
-          
-        </div> -->
 
         <!-- Market Insight -->
         <div id="marketInsight" class="market-insight">
@@ -87,6 +81,32 @@
       </div>
     </div>
 
-    <script type="module" src="/src/Main.js"></script>
+    <!-- Load WFC dependencies first -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js"></script>
+    
+    <!-- Load WFC Classes (embedded versions) -->
+    <script type="module">
+      // Import and set up WFC classes
+      import { TemplatePlacer, WaveFunctionCollapse } from './src/classes/WFCEmbedded.js';
+      import { WFCLoader } from './src/classes/WFCLoader.js';
+      
+      // Make available globally for compatibility
+      window.TemplatePlacer = TemplatePlacer;
+      window.WaveFunctionCollapse = WaveFunctionCollapse;
+      window.WFCLoader = WFCLoader;
+      
+      // Load ParchmentOverlay if available
+      try {
+        const { ParchmentOverlay } = await import('./src/classes/ParchmentOverlay.js');
+        window.ParchmentOverlay = ParchmentOverlay;
+        console.log("✅ ParchmentOverlay loaded");
+      } catch (error) {
+        console.log("⚠️ ParchmentOverlay not available, using fallback rendering");
+      }
+      
+      // Initialize main game after WFC classes are loaded
+      const { init } = await import('./src/Main.js');
+      // Main.js will call init() automatically
+    </script>
   </body>
 </html>

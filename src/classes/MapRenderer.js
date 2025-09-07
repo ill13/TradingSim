@@ -1,12 +1,12 @@
-// Map Renderer - Enhanced with Visual Travel Paths & Custom Tooltip
+// src/classes/MapRenderer.js - Enhanced with WFC Integration
 export class MapRenderer {
   constructor(canvas) {
-    console.log("renderer loading...");
+    console.log("Enhanced MapRenderer loading...");
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d");
-    this.hoverLocation = null; // Track hover state
-    // In MapRenderer.js, after constructor
-    //this.updateCanvasSize();
+    this.hoverLocation = null;
+    this.parchmentOverlay = null;
+    this.useWFCRender = false;
 
     // Event listeners
     canvas.addEventListener("click", this.handleClick.bind(this));
@@ -15,7 +15,7 @@ export class MapRenderer {
       this.hoverLocation = null;
       this.canvas.title = "";
       this.canvas.style.cursor = "default";
-      this.draw(); // Redraw without hover effects
+      this.draw();
     });
 
     // Handle window resize
@@ -31,6 +31,58 @@ export class MapRenderer {
       this.positionLocations();
       this.draw();
     });
+  }
+
+  // ✅ NEW: Initialize WFC rendering
+  async initializeWFCRender(wfc) {
+    if (!wfc || typeof ParchmentOverlay === 'undefined') {
+      console.log("WFC render not available, using fallback");
+      this.useWFCRender = false;
+      return;
+    }
+
+    try {
+      // Load WFC classes if needed
+      if (!window.ThemeManager) {
+        const { WFCLoader } = await import('./WFCLoader.js');
+        await WFCLoader.initialize();
+      }
+
+      // Create parchment overlay
+      const seed = window.MapNamer.stringToSeed(wfc.mapName);
+      this.parchmentOverlay = new ParchmentOverlay(wfc.width, wfc.height, 'fantasy', seed);
+      this.parchmentOverlay.initFromTheme(window.ThemeManager.current);
+      this.parchmentOverlay.setMapData(wfc.grid);
+
+      // Create and render overlay canvas
+      const overlayCanvas = this.parchmentOverlay.createCanvas();
+      this.parchmentOverlay.render();
+
+      // Position overlay
+      const container = this.canvas.parentElement;
+      container.style.position = "relative";
+      
+      // Remove existing overlay
+      const existingOverlay = container.querySelector('.wfc-overlay');
+      if (existingOverlay) existingOverlay.remove();
+
+      // Add new overlay
+      overlayCanvas.classList.add('wfc-overlay');
+      overlayCanvas.style.position = "absolute";
+      overlayCanvas.style.top = "0";
+      overlayCanvas.style.left = "0";
+      overlayCanvas.style.pointerEvents = "none";
+      overlayCanvas.style.zIndex = "0";
+      
+      container.appendChild(overlayCanvas);
+
+      this.useWFCRender = true;
+      console.log("✅ WFC parchment overlay initialized");
+      
+    } catch (error) {
+      console.error("❌ Failed to initialize WFC render:", error);
+      this.useWFCRender = false;
+    }
   }
 
   updateCanvasSize() {
@@ -50,151 +102,206 @@ export class MapRenderer {
     this.displayHeight = rect.height;
   }
 
-  positionLocations() {
+positionLocations() {
     const margin = 80;
     const w = this.displayWidth - 2 * margin;
     const h = this.displayHeight - 2 * margin;
-    const minSeparation = 120; // Increased separation distance
-    const maxOffset = 60; // Larger base offset range
 
     gameState.game.locations.forEach((location, i) => {
-      const gridPos = GridSystem.findLocationPosition(i);
-      if (!gridPos) return;
+      // Use WFC positions if available
+      if (this.useWFCRender && typeof location.x === 'number' && typeof location.y === 'number') {
+        // Convert WFC grid coordinates to canvas coordinates
+        const wfc = gameState.wfc;
+        const gridSize = wfc ? Math.max(wfc.width, wfc.height) : 8;
+        const cellSize = Math.min(w, h) / gridSize;
+        
+        // Center the grid within the canvas area
+        const gridPixelWidth = wfc.width * cellSize;
+        const gridPixelHeight = wfc.height * cellSize;
+        const offsetX = (w - gridPixelWidth) / 2;
+        const offsetY = (h - gridPixelHeight) / 2;
+        
+        location.canvasX = margin + offsetX + (location.x + 0.5) * cellSize;
+        location.canvasY = margin + offsetY + (location.y + 0.5) * cellSize;
+        
+        console.log(`📍 Located ${location.name} at canvas (${location.canvasX.toFixed(1)}, ${location.canvasY.toFixed(1)}) from grid (${location.x}, ${location.y})`);
+        return;
+      }
+
+      // Fallback: Use existing positioning logic for non-WFC locations
+      const gridPos = this.findLocationPosition(i);
+      if (!gridPos) {
+        console.warn(`No position found for location ${i}`);
+        return;
+      }
 
       const gridWidth = gameState.game.rules.grid.width;
       const gridHeight = gameState.game.rules.grid.height;
 
-      // Base position from grid
       let x = margin + (gridPos.x / (gridWidth - 1)) * w;
       let y = margin + (gridPos.y / (gridHeight - 1)) * h;
 
-      // Apply large random offset
+      // Apply random offset
       const locationSeed = gameState.game.seed + i * 17;
       const rand1 = ((locationSeed * 9301 + 49297) % 233280) / 233280;
       const rand2 = (((locationSeed + 1) * 9301 + 49297) % 233280) / 233280;
-      x += (rand1 - 0.5) * maxOffset;
-      y += (rand2 - 0.5) * maxOffset;
+      x += (rand1 - 0.5) * 60;
+      y += (rand2 - 0.5) * 60;
 
-      // Attempt to resolve collisions up to 100 times
-      let attempts = 0;
-      while (attempts < 100) {
-        let tooClose = false;
-        for (let j = 0; j < i; j++) {
-          const other = gameState.game.locations[j];
-          if (other.x !== undefined && other.y !== undefined) {
-            const dist = Math.sqrt((x - other.x) ** 2 + (y - other.y) ** 2);
-            if (dist < minSeparation) {
-              tooClose = true;
-              break;
-            }
-          }
-        }
-
-        if (!tooClose) break;
-
-        // If we're too close, push this location away from the nearest one
-        let closestDist = Infinity;
-        let closestX = x,
-          closestY = y;
-        for (let j = 0; j < i; j++) {
-          const other = gameState.game.locations[j];
-          if (other.x !== undefined && other.y !== undefined) {
-            const dx = x - other.x;
-            const dy = y - other.y;
-            const dist = Math.sqrt(dx * dx + dy * dy);
-            if (dist < closestDist) {
-              closestDist = dist;
-              // Push away from the closest location
-              const pushFactor = 1.5;
-              closestX = x + (dx / dist) * pushFactor * (minSeparation - closestDist);
-              closestY = y + (dy / dist) * pushFactor * (minSeparation - closestDist);
-            }
-          }
-        }
-        x = closestX;
-        y = closestY;
-        attempts++;
-      }
-
-      // Clamp within bounds
-      location.x = Math.max(margin + 50, Math.min(this.displayWidth - margin - 50, x));
-      location.y = Math.max(margin + 50, Math.min(this.displayHeight - margin - 50, y));
+      // Store final position
+      location.canvasX = Math.max(margin + 50, Math.min(this.displayWidth - margin - 50, x));
+      location.canvasY = Math.max(margin + 50, Math.min(this.displayHeight - margin - 50, y));
     });
   }
 
+  // Helper method for fallback positioning
+  findLocationPosition(locationIndex) {
+    if (gameState.game.locations[locationIndex] && 
+        typeof gameState.game.locations[locationIndex].x === 'number') {
+      return { 
+        x: gameState.game.locations[locationIndex].x, 
+        y: gameState.game.locations[locationIndex].y 
+      };
+    }
+
+    // Search in locationGrid as fallback
+    for (let y = 0; y < gameState.game.locationGrid.length; y++) {
+      for (let x = 0; x < gameState.game.locationGrid[y].length; x++) {
+        if (gameState.game.locationGrid[y][x] === locationIndex) {
+          return { x, y };
+        }
+      }
+    }
+    return null;
+  }
   draw() {
     this.ctx.clearRect(0, 0, this.displayWidth, this.displayHeight);
-    this.drawRoads();
 
-    // Draw all locations
-    gameState.game.locations.forEach((location, i) => {
-      const isPlayer = i === gameState.game.location;
-      const radius = 32;
-      this.ctx.beginPath();
-      this.ctx.arc(location.x, location.y, radius, 0, Math.PI * 2);
-      this.ctx.fillStyle = isPlayer ? "#4a5a35" : "#2d2d20";
-      this.ctx.fill();
-      this.ctx.strokeStyle = isPlayer ? "#ffd700" : "#6a6a45";
-      this.ctx.lineWidth = isPlayer ? 3 : 1;
-      this.ctx.stroke();
-      //emoji size
-      this.ctx.font = "24px Consolas";
-      this.ctx.textAlign = "center";
-      this.ctx.textBaseline = "middle";
-      this.ctx.fillStyle = "#f4e4bc";
-      this.ctx.fillText(location.emoji, location.x, location.y);
-
-      this.ctx.font = "12px Consolas";
-      this.ctx.textBaseline = "top";
-      //this.ctx.fillText(location.name, location.x, location.y + radius + Math.random() * (20 - 6 + 1));
-      this.ctx.fillText(location.name, location.x, location.y + radius + 8);
-    });
-
-    // Redraw hover effect if still active
-    if (this.hoverLocation !== null && this.hoverLocation !== gameState.game.location) {
-      this.drawPathTo(this.hoverLocation);
-      const loc = gameState.game.locations[this.hoverLocation];
-      this.drawTooltip(loc.x + 50, loc.y, `${GridSystem.getGridDistance(gameState.game.location, this.hoverLocation)} days 🗺️`);
+    // ✅ NEW: Different rendering based on mode
+    if (this.useWFCRender) {
+      this.drawWFCMode();
+    } else {
+      this.drawClassicMode();
     }
   }
 
-  drawRoads() {
-    this.ctx.strokeStyle = "#8b7355";
-    this.ctx.lineWidth = 1.5;
-    this.ctx.setLineDash([5, 5]); // Dashed lines for softness
+  drawWFCMode() {
+    // In WFC mode, we only draw minimal overlay since parchment handles terrain
+    // Draw location connections subtly
+    this.drawConnections(true);
+    
+    // Draw locations on top of parchment
+    gameState.game.locations.forEach((location, i) => {
+      this.drawLocation(location, i, true);
+    });
+
+    // Draw hover effects
+    if (this.hoverLocation !== null && this.hoverLocation !== gameState.game.location) {
+      this.drawPathTo(this.hoverLocation);
+      const loc = gameState.game.locations[this.hoverLocation];
+      const travelTime = GridSystem.getTravelTime(gameState.game.location, this.hoverLocation);
+      this.drawTooltip(loc.canvasX + 50, loc.canvasY, `${travelTime} days 🗺️`);
+    }
+  }
+
+  drawClassicMode() {
+    // Classic rendering with roads and terrain colors
+    this.drawRoads();
+    
+    gameState.game.locations.forEach((location, i) => {
+      this.drawLocation(location, i, false);
+    });
+
+    // Draw hover effects
+    if (this.hoverLocation !== null && this.hoverLocation !== gameState.game.location) {
+      this.drawPathTo(this.hoverLocation);
+      const loc = gameState.game.locations[this.hoverLocation];
+      const travelTime = GridSystem.getTravelTime(gameState.game.location, this.hoverLocation);
+      this.drawTooltip(loc.canvasX + 50, loc.canvasY, `${travelTime} days 🗺️`);
+    }
+  }
+
+  drawLocation(location, i, isWFCMode) {
+    const isPlayer = i === gameState.game.location;
+    const x = location.canvasX || location.x || 0;
+    const y = location.canvasY || location.y || 0;
+    const radius = 32;
+
+    // Location circle background
+    this.ctx.beginPath();
+    this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+    
+    if (isWFCMode) {
+      // Subtle background for WFC mode
+      this.ctx.fillStyle = isPlayer ? "rgba(74, 90, 53, 0.8)" : "rgba(45, 45, 32, 0.6)";
+    } else {
+      // Full background for classic mode
+      this.ctx.fillStyle = isPlayer ? "#4a5a35" : "#2d2d20";
+    }
+    
+    this.ctx.fill();
+    this.ctx.strokeStyle = isPlayer ? "#ffd700" : "#6a6a45";
+    this.ctx.lineWidth = isPlayer ? 3 : 1;
+    this.ctx.stroke();
+
+    // Location emoji
+    this.ctx.font = "24px Consolas";
+    this.ctx.textAlign = "center";
+    this.ctx.textBaseline = "middle";
+    this.ctx.fillStyle = "#f4e4bc";
+    this.ctx.fillText(location.emoji, x, y);
+
+    // Location name
+    this.ctx.font = "12px Consolas";
+    this.ctx.textBaseline = "top";
+    this.ctx.fillText(location.name, x, y + radius + 8);
+  }
+
+  drawConnections(subtle = false) {
+    this.ctx.strokeStyle = subtle ? "rgba(139, 115, 85, 0.3)" : "#8b7355";
+    this.ctx.lineWidth = subtle ? 1 : 1.5;
+    this.ctx.setLineDash(subtle ? [3, 3] : [5, 5]);
 
     gameState.game.locations.forEach((from, i) => {
       const connections = gameState.game.connections[i] || [];
       connections.forEach((j) => {
-        if (i >= j) return; // Draw each road once
+        if (i >= j) return; // Draw each connection once
+        
         const to = gameState.game.locations[j];
-        const midX = (from.x + to.x) / 2;
-        const midY = (from.y + to.y) / 2;
-        const dx = to.x - from.x;
-        const dy = to.y - from.y;
+        const fromX = from.canvasX || from.x || 0;
+        const fromY = from.canvasY || from.y || 0;
+        const toX = to.canvasX || to.x || 0;
+        const toY = to.canvasY || to.y || 0;
+        
+        const midX = (fromX + toX) / 2;
+        const midY = (fromY + toY) / 2;
+        const dx = toX - fromX;
+        const dy = toY - fromY;
         const dist = Math.sqrt(dx * dx + dy * dy);
         const perpX = (-dy / dist) * 15;
         const perpY = (dx / dist) * 15;
 
         this.ctx.beginPath();
-        this.ctx.moveTo(from.x, from.y);
-        this.ctx.quadraticCurveTo(midX + perpX, midY + perpY, to.x, to.y);
+        this.ctx.moveTo(fromX, fromY);
+        this.ctx.quadraticCurveTo(midX + perpX, midY + perpY, toX, toY);
         this.ctx.stroke();
       });
     });
+  }
+
+  drawRoads() {
+    this.drawConnections(false);
   }
 
   drawPathTo(targetIndex) {
     const path = GridSystem.findPath(gameState.game.location, targetIndex);
     if (path.length <= 1) return;
 
-    // Calculate total travel days using grid distance
     let totalDays = 0;
     for (let i = 1; i < path.length; i++) {
       totalDays += GridSystem.getGridDistance(path[i - 1], path[i]);
     }
 
-    // Draw the path
     this.ctx.save();
     this.ctx.strokeStyle = "rgba(212, 175, 55, 0.6)";
     this.ctx.lineWidth = 3;
@@ -203,14 +310,19 @@ export class MapRenderer {
 
     this.ctx.beginPath();
     const startLoc = gameState.game.locations[path[0]];
-    this.ctx.moveTo(startLoc.x, startLoc.y);
+    const startX = startLoc.canvasX || startLoc.x || 0;
+    const startY = startLoc.canvasY || startLoc.y || 0;
+    this.ctx.moveTo(startX, startY);
+    
     for (let i = 1; i < path.length; i++) {
       const loc = gameState.game.locations[path[i]];
-      this.ctx.lineTo(loc.x, loc.y);
+      const x = loc.canvasX || loc.x || 0;
+      const y = loc.canvasY || loc.y || 0;
+      this.ctx.lineTo(x, y);
     }
     this.ctx.stroke();
 
-    // Add sun icons (☀️) for each *day* of travel, spaced along the path
+    // Add travel day indicators
     const steps = Math.max(1, totalDays);
     for (let step = 1; step <= steps; step++) {
       const t = step / steps;
@@ -218,18 +330,20 @@ export class MapRenderer {
       const prevIndex = Math.max(0, pointIndex - 1);
       const loc = gameState.game.locations[path[pointIndex]];
       const prev = gameState.game.locations[path[prevIndex]];
-      const x = prev.x + (loc.x - prev.x) * (t * (path.length - 1) - prevIndex);
-      const y = prev.y + (loc.y - prev.y) * (t * (path.length - 1) - prevIndex);
+      
+      const locX = loc.canvasX || loc.x || 0;
+      const locY = loc.canvasY || loc.y || 0;
+      const prevX = prev.canvasX || prev.x || 0;
+      const prevY = prev.canvasY || prev.y || 0;
+      
+      const x = prevX + (locX - prevX) * (t * (path.length - 1) - prevIndex);
+      const y = prevY + (locY - prevY) * (t * (path.length - 1) - prevIndex);
 
       this.ctx.font = "8px Arial";
       this.ctx.fillText("☀️", x - 8, y - 20);
     }
 
     this.ctx.restore();
-
-    // Show tooltip with total days
-    const loc = gameState.game.locations[targetIndex];
-    this.drawTooltip(loc.x + 50, loc.y, `${totalDays} days 🗺️`);
   }
 
   drawTooltip(x, y, text) {
@@ -248,6 +362,7 @@ export class MapRenderer {
 
     // Text
     this.ctx.fillStyle = "#e8dcc5";
+    this.ctx.textAlign = "center";
     this.ctx.fillText(text, x + width / 2, y - height + fontSize / 2);
   }
 
@@ -257,23 +372,24 @@ export class MapRenderer {
     const y = e.clientY - rect.top;
 
     gameState.game.locations.forEach((location, i) => {
-      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+      const locX = location.canvasX || location.x || 0;
+      const locY = location.canvasY || location.y || 0;
+      const dist = Math.sqrt((x - locX) ** 2 + (y - locY) ** 2);
+      
       if (dist <= 40) {
-        // ✅ Create ripple at location.x, location.y
+        // Create ripple effect
         const ripple = document.createElement("div");
         ripple.classList.add("ripple");
-        ripple.style.left = `${location.x}px`;
-        ripple.style.top = `${location.y}px`;
-        ripple.style.transform = "translate(-50%, -50%)"; // Center on point
+        ripple.style.left = `${locX}px`;
+        ripple.style.top = `${locY}px`;
+        ripple.style.transform = "translate(-50%, -50%)";
 
-        // ✅ Append to .canvas-container, not canvas.parentElement
-        const container = this.canvas.closest(".canvas-container");
+        const container = this.canvas.closest(".canvas-container") || this.canvas.parentElement;
         container.appendChild(ripple);
 
-        // Remove after animation
         setTimeout(() => ripple.remove(), 1500);
 
-        // Travel logic
+        // Travel or enter location
         if (i !== gameState.game.location) {
           travel(i);
         } else {
@@ -283,37 +399,6 @@ export class MapRenderer {
     });
   }
 
-  handleMouseMove_old(e) {
-    const rect = this.canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    let hoverLocation = null;
-
-    gameState.game.locations.forEach((location, i) => {
-      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
-      if (dist <= 40 && i !== gameState.game.location) {
-        hoverLocation = i;
-
-        const canTravel = GridSystem.getTravelTime(gameState.game.location, hoverLocation) !== Infinity;
-        if (!canTravel) {
-          this.canvas.style.cursor = "not-allowed";
-        } else {
-          this.canvas.style.cursor = "pointer";
-        }
-      }
-    });
-
-    if (hoverLocation !== null) {
-      this.hoverLocation = hoverLocation;
-      this.canvas.style.cursor = "pointer";
-      this.draw(); // Redraw with path and tooltip
-    } else if (this.hoverLocation !== null) {
-      this.hoverLocation = null;
-      this.canvas.style.cursor = "default";
-      this.draw(); // Clear hover effect
-    }
-  }
-
   handleMouseMove(e) {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -321,7 +406,10 @@ export class MapRenderer {
     let hoverLocation = null;
 
     gameState.game.locations.forEach((location, i) => {
-      const dist = Math.sqrt((x - location.x) ** 2 + (y - location.y) ** 2);
+      const locX = location.canvasX || location.x || 0;
+      const locY = location.canvasY || location.y || 0;
+      const dist = Math.sqrt((x - locX) ** 2 + (y - locY) ** 2);
+      
       if (dist <= 40 && i !== gameState.game.location) {
         hoverLocation = i;
       }
@@ -344,7 +432,7 @@ export class MapRenderer {
       }
 
       this.hoverLocation = hoverLocation;
-      this.draw(); // Redraw with path and tooltip
+      this.draw();
     } else if (this.hoverLocation !== null) {
       this.hoverLocation = null;
       this.canvas.style.cursor = "default";
@@ -352,4 +440,8 @@ export class MapRenderer {
       this.draw();
     }
   }
+
+
+
+
 }
